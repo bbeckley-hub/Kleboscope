@@ -1,0 +1,40 @@
+# ===============================
+# Python artifacts
+# ===============================
+__pycache__/
+*.pyc
+*.pyo
+
+# packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# ===============================
+# Data folders (exclude)
+# ===============================
+Kp_fasta/
+
+# ===============================
+# Module internal tool folders
+# ===============================
+kleboscope/modules/*/bin/
+kleboscope/modules/*/data/
+kleboscope/modules/*/db/
+kleboscope/modules/*/perl5/
+kleboscope/modules/*/scripts/
+kleboscope/modules/*/stx/
+
+# ===============================
+# Figures / PDFs generated
+# ===============================
+*.png
+*.pdf
+*.svg
+*.tiff
+
+# ===============================
+# Results folders
+# ===============================
+results/
