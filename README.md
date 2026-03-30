@@ -462,7 +462,7 @@ If you use Kleboscope in your research, please cite:
 **Software citation:**
 ```bibtex
 @software{kleboscope2026,
-  author = {Beckley Brown **et. al**},
+  author = {Beckley Brown et. al},
   title = {Kleboscope: A gene‑centric, species‑optimized computational pipeline for comprehensive Klebsiella pneumoniae genomic surveillance},
   year = {2026},
   publisher = {GitHub},
