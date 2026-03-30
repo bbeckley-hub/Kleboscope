@@ -310,8 +310,8 @@ results/
 | Workstation (16 cores, 16 GB) | 30 | ~3h (estimated) |
 
 - **QC + MLST + Kaptive** (parallel): ~4 min
-- **ABRicate** (11 DBs): ~3h
-- **AMRfinder**: ~4h
+- **ABRicate** (11 DBs): ~1h
+- **AMRfinder**: ~3h
 - **Ultimate reporter**: <1 sec
 
 Memory usage never exceeded 3 GB.
