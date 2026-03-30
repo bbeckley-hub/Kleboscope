@@ -142,6 +142,10 @@ pip install -e .
 ```bash
 kleboscope --version
 ```
+**Run this commands after installation:**
+```bash
+abricate --setupdb
+```
 
 ### **Run your first analysis**
 
