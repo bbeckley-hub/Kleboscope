@@ -462,7 +462,7 @@ If you use Kleboscope in your research, please cite:
 **Software citation:**
 ```bibtex
 @software{kleboscope2026,
-  author = {Brown Beckley and Vincent Amarh},
+  author = {Beckley Brown **et. al**},
   title = {Kleboscope: A gene‑centric, species‑optimized computational pipeline for comprehensive Klebsiella pneumoniae genomic surveillance},
   year = {2026},
   publisher = {GitHub},
@@ -511,8 +511,6 @@ We thank the developers of all the tools and databases that Kleboscope integrate
 - 🐙 GitHub: [bbeckley-hub](https://github.com/bbeckley-hub)  
 - LinkedIn: [@brownbeckley](https://www.linkedin.com/in/brown-beckley-190315319/)
 
-**Vincent Amarh** (Co‑Author)  
-- University of Ghana Medical School
 
 ### **Collaboration Opportunities**
 We welcome collaborations on:
