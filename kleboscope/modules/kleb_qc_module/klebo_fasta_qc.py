@@ -26,12 +26,12 @@ from Bio import SeqIO
 from Bio.SeqUtils import gc_fraction
 
 class KleboscopeFASTAQC:
-    """Comprehensive FASTA QC for K. pneumoniae - Orchestrator Compliant"""
+    """Comprehensive FASTA QC for K. pneumoniae"""
     
     def __init__(self, cpus: int = 1):
         self.logger = self._setup_logging()
         self.cpus = cpus
-        self.logger.info(f"Initialized with {self.cpus} threads allocated by orchestrator.")
+        self.logger.info(f"Initialized with {self.cpus}") # value passed by kleboscope.py
         
         self.metadata = {
             "tool_name": "Kleboscope FASTA QC",
