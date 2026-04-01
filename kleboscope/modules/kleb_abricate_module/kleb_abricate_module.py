@@ -4,7 +4,6 @@ Kleboscope ABRicate Standalone Module
 Comprehensive ABRicate analysis for Klebsiella pneumoniae with HTML, TSV, and JSON reporting
 Author: Brown Beckley <brownbeckley94@gmail.com>
 Affiliation: University of Ghana Medical School - Department of Medical Biochemistry
-Date: 2026-05-24
 Version: 2.0.0 
 """
 
