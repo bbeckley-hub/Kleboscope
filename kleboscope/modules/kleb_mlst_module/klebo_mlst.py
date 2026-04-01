@@ -3,7 +3,7 @@
 Kleboscope MLST Module - Orchestrator Compliant
 Author: Brown Beckley
 Affiliation: University of Ghana Medical School - Department of Medical Biochemistry
-Version: 2.0.0 (Data-Externalized, HTML-Consolidated, Orchestrator-Compliant)
+Version: 2.0.0 
 """
 
 #import os
