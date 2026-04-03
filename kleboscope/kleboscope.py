@@ -4,7 +4,6 @@ Kleboscope Main Orchestrator – Parallel Execution with Scientific Quotes
 Complete K. pneumoniae typing & resistance pipeline
 Author: Brown Beckley <brownbeckley94@gmail.com>
 Version: 2.0.0 
-Date: 2026-03-31
 Affiliation: University of Ghana Medical School – Department of Medical Biochemistry
 """
 
@@ -13,7 +12,7 @@ import sys
 import glob
 import argparse
 import subprocess
-import shutil
+#import shutil
 import random
 from pathlib import Path
 from datetime import datetime
@@ -183,6 +182,9 @@ class KleboscopeOrchestrator:
         """Returns a glob string based on the absolute path of the directory."""
         if not fasta_files:
             return "*.fna"
+        # fix to handle one input
+        if len(fasta_files) == 1:
+            return str(fasta_files[0])
         parent_dir = fasta_files[0].parent
         extensions = set(f.suffix.lower() for f in fasta_files)
         ext = f"*{list(extensions)[0]}" if len(extensions) == 1 else "*"
