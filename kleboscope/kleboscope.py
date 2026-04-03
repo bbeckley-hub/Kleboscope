@@ -189,10 +189,36 @@ class KleboscopeOrchestrator:
         extensions = set(f.suffix.lower() for f in fasta_files)
         ext = f"*{list(extensions)[0]}" if len(extensions) == 1 else "*"
         return str(parent_dir / ext)
+    
+    def get_available_ram_gb(self, fallback_gb: float = 8.0) -> float:
+        slurm_mem = os.environ.get('SLURM_MEM_PER_NODE')  # in MB
+        if slurm_mem:
+            try:
+                ram_gb = int(slurm_mem) / 1024
+                self.print_info(f"Detected SLURM allocated RAM: {ram_gb:.1f} GB")
+                return ram_gb
+            except ValueError:
+                pass
+
+    # 2. Fallback: read cgroup memory limit
+        cgroup_limit = Path("/sys/fs/cgroup/memory/memory.limit_in_bytes")
+        if cgroup_limit.exists():
+            try:
+                limit_bytes = int(cgroup_limit.read_text().strip())                
+                if limit_bytes < (2 ** 62):
+                    ram_gb = limit_bytes / (1024 ** 3)
+                    self.print_info(f"Detected cgroup RAM limit: {ram_gb:.1f} GB")
+                    return ram_gb
+            except (ValueError, PermissionError):
+                pass
+
+        self.print_warning(f"Could not detect RAM. Using fallback: {fallback_gb} GB")
+        return fallback_gb
 
     # --------------------------------------------------------------------------
     # Module Runner
     # --------------------------------------------------------------------------
+    
     def _execute_module(self, module_key: str, display_name: str, fasta_files: List[Path], base_output_dir: Path, threads: int) -> Tuple[bool, str]:
         config = self.module_configs[module_key]
         module_path = self.base_dir / "modules" / config['dir']
@@ -254,13 +280,18 @@ class KleboscopeOrchestrator:
             output += "⚠️ Ultimate reporter had warnings\n"
             
         return result.returncode == 0, output
+    
 
     # --------------------------------------------------------------------------
     # Main execution
     # --------------------------------------------------------------------------
     def run_complete_analysis(self, input_path: str, output_dir: str, threads: int = 1,
-                              skip_modules: Dict[str, bool] = None, skip_summary: bool = False):
+                              skip_modules: Dict[str, bool] = None, skip_summary: bool = False,
+                              ram_gb: float = None):
         if skip_modules is None: skip_modules = {}
+        if ram_gb is None:
+            ram_gb = self.get_available_ram_gb(fallback_gb=8.0)
+        else : self.print_info(f"Using user-provided RAM: {ram_gb} GB")
         start_time = datetime.now()
         self.display_banner()
         
@@ -326,11 +357,23 @@ class KleboscopeOrchestrator:
         # SEQUENTIAL SECOND BATCH: ABRicate, then AMR
         # =====================================================================
         sequential_tasks = [(k, n) for k, n, e in plan[3:5] if e]
+        safe_heavy_threads = threads
+
+        if sequential_tasks:
+            if ram_gb:
+                #3 gb needed usually
+                max_threads_by_ram = max(1, int(ram_gb // 3))
+                if max_threads_by_ram < threads:
+                    safe_heavy_threads = max_threads_by_ram
+                    self.print_warning(f"RAM limit ({ram_gb}GB) restricts concurrent heavy aligners.")
+                    self.print_warning(f"Downgrading heavy threads from {threads} to {safe_heavy_threads} to prevent HPC OOM.")
+                else:
+                    self.print_success(f"RAM ({ram_gb}GB) is sufficient for {threads} heavy threads.")    
         
         for key, name in sequential_tasks:
             self.print_header(f"{name.upper()} ANALYSIS")
             # Give full thread pool to sequential tasks
-            success, output = self._execute_module(key, name, fasta_files, output_path, threads)
+            success, output = self._execute_module(key, name, fasta_files, output_path, safe_heavy_threads)
             print(output.strip())
             self.display_random_quote()
             if success: self.print_success(f"✅ {name} completed")
@@ -420,6 +463,7 @@ def main():
     parser.add_argument('-i', '--input', required=True)
     parser.add_argument('-o', '--output', required=True)
     parser.add_argument('-t', '--threads', type=int, default=2)
+    parser.add_argument('--ram', type=float, default=None, help="RAM in GB. Autodected from HPC") #add ram parameter
     parser.add_argument('--skip-qc', action='store_true')
     parser.add_argument('--skip-mlst', action='store_true')
     parser.add_argument('--skip-kaptive', action='store_true')
@@ -436,7 +480,7 @@ def main():
 
     orchestrator = KleboscopeOrchestrator()
     try:
-        orchestrator.run_complete_analysis(args.input, args.output, args.threads, skip_modules, args.skip_summary)
+        orchestrator.run_complete_analysis(args.input, args.output, args.threads, skip_modules, args.skip_summary, args.ram) #added ram argument
     except KeyboardInterrupt:
         print(f"\n{Color.BRIGHT_RED}❌ Analysis interrupted by user{Color.RESET}")
     except Exception as e:
