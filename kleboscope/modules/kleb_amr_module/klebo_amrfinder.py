@@ -30,8 +30,16 @@ class KleboAMRfinderPlus:
         self.logger.info(f"Initialized with {self.cpus} threads allocated by orchestrator.")
         
         self.module_dir = os.path.dirname(os.path.abspath(__file__))
-        self.bundled_amrfinder = os.path.join(self.module_dir, "bin", "amrfinder")
-        self.bundled_database = os.path.join(self.module_dir, "data", "amrfinder_db", "2026-01-21.1")
+        self.bundled_amrfinder = "amrfinder"
+        db_base_dir = Path(self.module_dir) / "data" / "amrfinder_db"
+        
+        if (db_base_dir / "latest").exists():
+            self.bundled_database = str(db_base_dir / "latest")
+        elif db_base_dir.exists():
+            db_folders = sorted([d for d in db_base_dir.iterdir() if d.is_dir()])
+            self.bundled_database = str(db_folders[-1]) if db_folders else None
+        else:
+            self.bundled_database = None
         
         self._load_gene_dictionaries()
         
@@ -82,11 +90,9 @@ class KleboAMRfinderPlus:
         return logging.getLogger(__name__)
     
     def check_amrfinder_installed(self) -> bool:
-        if not os.path.exists(self.bundled_amrfinder): return False
-        if not os.access(self.bundled_amrfinder, os.X_OK): os.chmod(self.bundled_amrfinder, 0o755)
         try:
             res = subprocess.run([self.bundled_amrfinder, '--version'], capture_output=True, text=True, check=True)
-            self.logger.info(f"Bundled AMRfinderPlus version: {res.stdout.strip()}")
+            self.logger.info(f"AMRfinderPlus version: {res.stdout.strip()}")
             return True
         except Exception: return False
 
@@ -232,18 +238,41 @@ class KleboAMRfinderPlus:
             f.write(self._get_base_html(f"AMR Report - {genome_name}", content))
 
     def _create_summary_html_report(self, all_results: Dict[str, Any], output_base: str):
+        total_genomes = len(all_results)
+        total_hits = sum(r['hit_count'] for r in all_results.values())
+        
+        genes_per_genome = {}
+        gene_frequency = defaultdict(set)
+        for gn, res in all_results.items():
+            genes = [h.get('gene_symbol', '') for h in res['hits'] if h.get('gene_symbol')]
+            genes_per_genome[gn] = set(genes)
+            for g in genes: gene_frequency[g].add(gn)
+            
+        t1_rows = "".join([f"<tr><td>{gn}</td><td>{len(genes)}</td><td>{', '.join(genes)}</td></tr>" for gn, genes in genes_per_genome.items()])
+        
+        t2_rows = ""
+        for g, genomes in sorted(gene_frequency.items(), key=lambda x: len(x[1]), reverse=True):
+            t2_rows += f"<tr><td>{g}</td><td>{len(genomes)}</td><td>{', '.join(genomes)}</td><td>Standard</td></tr>"
+            
         content = f"""
         <div class="card">
             <h2>📊 Batch AMR Summary</h2>
             <div class="summary-stats">
-                <div class="stat-card"><h3>Genomes</h3><p style="font-size: 2em;">{len(all_results)}</p></div>
-                <div class="stat-card"><h3>Total Hits</h3><p style="font-size: 2em;">{sum(r['hit_count'] for r in all_results.values())}</p></div>
+                <div class="stat-card"><h3>Genomes</h3><p style="font-size: 2em;">{total_genomes}</p></div>
+                <div class="stat-card"><h3>Total Hits</h3><p style="font-size: 2em;">{total_hits}</p></div>
             </div>
         </div>
+        <div class="card">
+            <h2>Genes by Genome</h2>
+            <table class="summary-table"><thead><tr><th>Genome</th><th>Count</th><th>Genes Detected</th></tr></thead><tbody>{t1_rows}</tbody></table>
+        </div>
+        <div class="card">
+            <h2>Gene Frequency</h2>
+            <table class="summary-table"><thead><tr><th>Gene</th><th>Frequency</th><th>Genomes</th><th>Risk Level</th></tr></thead><tbody>{t2_rows}</tbody></table>
+        </div>
         """
-        with open(os.path.join(output_base, "klebo_amrfinder_summary_report.html"), 'w') as f:
+        with open(os.path.join(output_base, "klebo_amrfinder_summary_report.html"), 'w', encoding='utf-8') as f:
             f.write(self._get_base_html("AMR Batch Summary", content))
-
     # =========================================================================
     # PROCESS RUNNERS
     # =========================================================================
