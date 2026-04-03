@@ -4,7 +4,7 @@ Kleboscope ABRicate Standalone Module
 Comprehensive ABRicate analysis for Klebsiella pneumoniae with HTML, TSV, and JSON reporting
 Author: Brown Beckley <brownbeckley94@gmail.com>
 Affiliation: University of Ghana Medical School - Department of Medical Biochemistry
-Version: 2.0.0 
+Version: 2.0.0
 """
 
 import subprocess
@@ -15,14 +15,13 @@ import logging
 import json
 import random
 import argparse
-#import re
 from pathlib import Path
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any
 
 class AbricateExecutor:
-    """ABRicate executor for Klebsiella with comprehensive reporting"""
+    """ABRicate executor for Klebsiella with comprehensive reporting - Orchestrator Compliant"""
     
     def __init__(self, cpus: int = 1):
         self.logger = self._setup_logging()
@@ -39,7 +38,7 @@ class AbricateExecutor:
         
         self.metadata = {
             "tool_name": "Kleboscope ABRicate",
-            "version": "2.0.0",
+            "version": "3.1.1",
             "authors": ["Brown Beckley"],
             "email": "brownbeckley94@gmail.com",
             "analysis_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -72,7 +71,7 @@ class AbricateExecutor:
                 self.beta_lactamase_genes = set(gene_dbs.get("beta_lactamase_genes", []))
             self.logger.info("Successfully loaded gene dictionaries from kleb_genes.json")
         except FileNotFoundError:
-            self.logger.error("kleb_genes.json not found. Creating empty sets.")
+            self.logger.warning("kleb_genes.json not found. Creating empty sets. Critical risk mapping will be limited.")
             self.critical_resistance_genes = set()
             self.high_risk_virulence_genes = set()
             self.beta_lactamase_genes = set()
@@ -105,32 +104,48 @@ class AbricateExecutor:
 
     def run_abricate_single_db(self, genome_file: str, database: str, output_dir: str) -> Dict[str, Any]:
         genome_name = Path(genome_file).stem
-        output_file = os.path.join(output_dir, f"abricate_{database}.txt")
-        cmd = ['abricate', genome_file, '--db', database, '--minid', '80', '--mincov', '80', '--threads', '1']
+        output_file = os.path.join(output_dir, f"{genome_name}_abricate_{database}.txt")
+        
+        cmd = ['abricate', genome_file, '--db', database, '--minid', '80', '--mincov', '80']
+        
         try:
             with open(output_file, 'w') as outfile:
                 subprocess.run(cmd, stdout=outfile, stderr=subprocess.PIPE, text=True, check=True)
             hits = self._parse_abricate_output(output_file)
             self._create_database_html_report(genome_name, database, hits, output_dir)
             return {'database': database, 'genome': genome_name, 'output_file': output_file, 'hits': hits, 'hit_count': len(hits), 'status': 'success'}
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as e:
+            self.logger.error(f"ABRicate failed on {database} for {genome_name}: {e.stderr}")
             return {'database': database, 'genome': genome_name, 'output_file': output_file, 'hits': [], 'hit_count': 0, 'status': 'failed'}
 
     def _parse_abricate_output(self, abricate_file: str) -> List[Dict]:
         hits = []
         try:
-            with open(abricate_file, 'r') as f: lines = [l.strip() for l in f.readlines() if l.strip()]
+            with open(abricate_file, 'r') as f: 
+                lines = [l.strip() for l in f.readlines() if l.strip()]
             if not lines: return hits
+            
             headers = lines[0].replace('#', '').split('\t')
             for line in lines[1:]:
                 parts = line.split('\t')
                 parts.extend([''] * (len(headers) - len(parts))) # pad if short
                 hit = dict(zip(headers, parts))
                 hits.append({
-                    'genome': hit.get('FILE', ''), 'gene': hit.get('GENE', ''),
-                    'coverage_percent': hit.get('%COVERAGE', ''), 'identity_percent': hit.get('%IDENTITY', ''),
-                    'database': hit.get('DATABASE', ''), 'accession': hit.get('ACCESSION', ''),
-                    'product': hit.get('PRODUCT', '')
+                    'genome': hit.get('FILE', ''), 
+                    'sequence': hit.get('SEQUENCE', ''),
+                    'start': hit.get('START', ''),
+                    'end': hit.get('END', ''),
+                    'strand': hit.get('STRAND', ''),
+                    'gene': hit.get('GENE', ''),
+                    'coverage': hit.get('COVERAGE', ''),
+                    'coverage_map': hit.get('COVERAGE_MAP', ''),
+                    'gaps': hit.get('GAPS', ''),
+                    'coverage_percent': hit.get('%COVERAGE', ''), 
+                    'identity_percent': hit.get('%IDENTITY', ''),
+                    'database': hit.get('DATABASE', ''), 
+                    'accession': hit.get('ACCESSION', ''),
+                    'product': hit.get('PRODUCT', ''),
+                    'resistance': hit.get('RESISTANCE', '')
                 })
         except Exception as e:
             self.logger.error("Error parsing %s: %s", abricate_file, e)
@@ -155,7 +170,8 @@ class AbricateExecutor:
                 
             res_class = self._classify_resistance(product)
             if res_class:
-                if res_class not in analysis['resistance_classes']: analysis['resistance_classes'][res_class] = []
+                if res_class not in analysis['resistance_classes']: 
+                    analysis['resistance_classes'][res_class] = []
                 analysis['resistance_classes'][res_class].append(hit)
                 
         analysis['total_critical_resistance'] = len(analysis['critical_resistance_genes'])
@@ -174,7 +190,6 @@ class AbricateExecutor:
     # HTML TEMPLATING & REPORT GENERATION
     # =========================================================================
     def _get_base_html(self, title: str, body_content: str) -> str:
-        """Centralized HTML wrapper to eliminate repetitive CSS/JS boilerplate."""
         quote = random.choice(self.science_quotes)
         return f"""<!DOCTYPE html>
 <html lang="en">
@@ -244,7 +259,7 @@ class AbricateExecutor:
         </div>
         <div class="report-section"><h2>🔍 Genes Detected</h2>{self._build_html_table(hits)}</div>
         """
-        with open(os.path.join(output_dir, f"abricate_{database}_report.html"), 'w') as f:
+        with open(os.path.join(output_dir, f"{genome_name}_abricate_{database}_report.html"), 'w') as f:
             f.write(self._get_base_html(f"KLEBOSCOPE - {database.upper()}", content))
 
     def create_comprehensive_html_report(self, genome_name: str, results: Dict, output_dir: str):
@@ -267,12 +282,39 @@ class AbricateExecutor:
             content += f'<div class="report-section"><h2>🟡 High-Risk Virulence Genes</h2>{self._build_html_table(analysis["high_risk_virulence_genes"], "high-risk")}</div>'
         if analysis['beta_lactamase_genes']:
             content += f'<div class="report-section"><h2>🔵 Beta-Lactamase Genes</h2>{self._build_html_table(analysis["beta_lactamase_genes"][:1000], "present")}</div>'
+            
+        if analysis['other_genes']:
+            content += f'<div class="report-section"><h2>⚪ Other Detected Genes</h2>{self._build_html_table(analysis["other_genes"][:1000], "present")}</div>'
         
         with open(os.path.join(output_dir, f"{genome_name}_comprehensive_abricate_report.html"), 'w') as f:
             f.write(self._get_base_html(f"KLEBOSCOPE - Comprehensive ({genome_name})", content))
 
     def _create_database_summary_html(self, database: str, hits: List[Dict], output_base: str):
         unique_genomes = list(set(h['genome'] for h in hits))
+        
+        genes_per_genome = {}
+        for hit in hits:
+            genome = hit['genome']
+            if genome not in genes_per_genome:
+                genes_per_genome[genome] = set()
+            genes_per_genome[genome].add(hit['gene'])
+            
+        t1_rows = ""
+        for genome in sorted(unique_genomes):
+            genes = genes_per_genome.get(genome, set())
+            t1_rows += f"<tr><td>{genome}</td><td>{len(genes)}</td><td>{', '.join(sorted(genes))}</td></tr>"
+            
+        gene_frequency = {}
+        for hit in hits:
+            gene = hit['gene']
+            if gene not in gene_frequency:
+                gene_frequency[gene] = set()
+            gene_frequency[gene].add(hit['genome'])
+            
+        t2_rows = ""
+        for gene, genomes in sorted(gene_frequency.items(), key=lambda x: len(x[1]), reverse=True):
+            t2_rows += f"<tr><td>{gene}</td><td>{len(genomes)}</td><td>{', '.join(sorted(genomes))}</td></tr>"
+
         content = f"""
         <div class="report-section">
             <h2>📊 Batch Summary: {database.upper()}</h2>
@@ -281,17 +323,198 @@ class AbricateExecutor:
                 <div class="metric-card"><div class="metric-value">{len(unique_genomes)}</div><div>Genomes</div></div>
             </div>
         </div>
+        <div class="report-section">
+            <h2>Genes by Genome</h2>
+            <div style="overflow-x:auto;">
+                <table class="summary-table">
+                    <thead><tr><th>Genome</th><th>Count</th><th>Genes Detected</th></tr></thead>
+                    <tbody>{t1_rows}</tbody>
+                </table>
+            </div>
+        </div>
+        <div class="report-section">
+            <h2>Gene Frequency</h2>
+            <div style="overflow-x:auto;">
+                <table class="summary-table">
+                    <thead><tr><th>Gene</th><th>Frequency</th><th>Genomes</th></tr></thead>
+                    <tbody>{t2_rows}</tbody>
+                </table>
+            </div>
+        </div>
         """
-        with open(os.path.join(output_base, f"klebo_{database}_summary_report.html"), 'w') as f:
+        with open(os.path.join(output_base, f"klebo_{database}_summary_report.html"), 'w', encoding='utf-8') as f:
             f.write(self._get_base_html(f"KLEBOSCOPE - Batch {database.upper()}", content))
+
+    # =========================================================================
+    # TSV AND JSON SUMMARY REPORTING (RESTORED FROM OLD CODE)
+    # =========================================================================
+    def create_database_summaries(self, all_results: Dict[str, Any], output_base: str):
+        self.logger.info("Creating database summary files (TSV)...")
+        db_results = {}
+        
+        for genome_name, genome_result in all_results.items():
+            for db, db_result in genome_result['results'].items():
+                if db not in db_results:
+                    db_results[db] = []
+                for hit in db_result['hits']:
+                    hit_with_genome = hit.copy()
+                    hit_with_genome['genome'] = genome_name
+                    db_results[db].append(hit_with_genome)
+                    
+        for db, hits in db_results.items():
+            if hits:
+                summary_file = os.path.join(output_base, f"klebo_{db}_abricate_summary.tsv")
+                # Ensure reliable header ordering
+                headers = ['file', 'sequence', 'start', 'end', 'strand', 'gene', 'coverage', 'coverage_map', 
+                           'gaps', 'coverage_percent', 'identity_percent', 'database', 'accession', 'product', 'resistance', 'genome']
+                
+                with open(summary_file, 'w') as f:
+                    f.write('\t'.join(headers) + '\n')
+                    for hit in hits:
+                        # Remap from internal to requested headers where necessary
+                        row = [
+                            str(hit.get('genome', '')), str(hit.get('sequence', '')), str(hit.get('start', '')), str(hit.get('end', '')), 
+                            str(hit.get('strand', '')), str(hit.get('gene', '')), str(hit.get('coverage', '')), str(hit.get('coverage_map', '')), 
+                            str(hit.get('gaps', '')), str(hit.get('coverage_percent', '')), str(hit.get('identity_percent', '')), 
+                            str(hit.get('database', '')), str(hit.get('accession', '')), str(hit.get('product', '')), str(hit.get('resistance', '')), 
+                            str(hit.get('genome', '')) 
+                        ]
+                        f.write('\t'.join(row) + '\n')
+                self.logger.info("✓ Created %s summary TSV: %s (%d hits)", db, summary_file, len(hits))
+                self._create_database_summary_html(db, hits, output_base)
+            else:
+                self.logger.info("No hits for database %s, skipping summary", db)
+
+    def create_database_json_summaries(self, all_results: Dict[str, Any], output_base: str):
+        self.logger.info("Creating JSON database summaries...")
+        db_results = {}
+        for genome_name, genome_result in all_results.items():
+            for db, db_result in genome_result['results'].items():
+                if db not in db_results:
+                    db_results[db] = {'hits': [], 'genomes': [], 'gene_frequency': {}}
+                for hit in db_result['hits']:
+                    hit_with_genome = hit.copy()
+                    hit_with_genome['genome'] = genome_name
+                    db_results[db]['hits'].append(hit_with_genome)
+                if genome_name not in db_results[db]['genomes']:
+                    db_results[db]['genomes'].append(genome_name)
+                    
+        for db, data in db_results.items():
+            if not data['hits']:
+                continue
+            gene_frequency = {}
+            for hit in data['hits']:
+                gene = hit['gene']
+                if gene not in gene_frequency:
+                    gene_frequency[gene] = {'count': 0, 'genomes': set(), 'details': []}
+                gene_frequency[gene]['count'] += 1
+                gene_frequency[gene]['genomes'].add(hit['genome'])
+                gene_frequency[gene]['details'].append({
+                    'genome': hit['genome'],
+                    'product': hit['product'],
+                    'coverage': hit['coverage_percent'],
+                    'identity': hit['identity_percent'],
+                    'accession': hit['accession']
+                })
+            for gene in gene_frequency:
+                gene_frequency[gene]['genomes'] = list(gene_frequency[gene]['genomes'])
+                
+            json_summary = {
+                'metadata': {
+                    'database': db,
+                    'analysis_date': self.metadata['analysis_date'],
+                    'tool': self.metadata['tool_name'],
+                    'version': self.metadata['version'],
+                    'total_hits': len(data['hits']),
+                    'total_genomes': len(data['genomes']),
+                    'unique_genes': len(gene_frequency)
+                },
+                'gene_frequency': gene_frequency,
+                'hits': data['hits'][:100000]
+            }
+            json_file = os.path.join(output_base, f"klebo_{db}_summary.json")
+            with open(json_file, 'w') as f:
+                json.dump(json_summary, f, indent=2, default=str)
+            self.logger.info("✓ Created JSON summary: %s", json_file)
+
+    def create_master_json_summary(self, all_results: Dict[str, Any], output_base: str):
+        self.logger.info("Creating master JSON summary...")
+        master_summary = {
+            'metadata': {
+                'tool': 'Kleboscope ABRicate Module',
+                'version': self.metadata['version'],
+                'analysis_date': self.metadata['analysis_date'],
+                'total_genomes': len(all_results),
+                'databases_used': self.required_databases
+            },
+            'genome_summaries': {},
+            'critical_findings': {},
+            'cross_database_patterns': {}
+        }
+        
+        all_hits_by_gene = {}
+        for genome_name, genome_result in all_results.items():
+            all_genome_hits = []
+            for db_result in genome_result['results'].values():
+                all_genome_hits.extend(db_result['hits'])
+                
+            analysis = self.analyze_klebsiella_genes(all_genome_hits)
+            master_summary['genome_summaries'][genome_name] = {
+                'total_hits': genome_result['total_hits'],
+                'critical_resistance': len(analysis['critical_resistance_genes']),
+                'high_risk_virulence': len(analysis['high_risk_virulence_genes']),
+                'beta_lactamases': len(analysis['beta_lactamase_genes']),
+                'other_genes': len(analysis['other_genes'])
+            }
+            
+            if analysis['critical_resistance_genes']:
+                if 'critical_genomes' not in master_summary['critical_findings']:
+                    master_summary['critical_findings']['critical_genomes'] = []
+                master_summary['critical_findings']['critical_genomes'].append(genome_name)
+            if analysis['high_risk_virulence_genes']:
+                if 'hv_genomes' not in master_summary['critical_findings']:
+                    master_summary['critical_findings']['hv_genomes'] = []
+                master_summary['critical_findings']['hv_genomes'].append(genome_name)
+                
+            for hit in all_genome_hits:
+                gene = hit['gene']
+                if gene not in all_hits_by_gene:
+                    all_hits_by_gene[gene] = {'count': 0, 'genomes': set(), 'products': set(), 'databases': set()}
+                all_hits_by_gene[gene]['count'] += 1
+                all_hits_by_gene[gene]['genomes'].add(genome_name)
+                all_hits_by_gene[gene]['products'].add(hit['product'])
+                all_hits_by_gene[gene]['databases'].add(hit['database'])
+                
+        for gene in all_hits_by_gene:
+            all_hits_by_gene[gene]['genomes'] = list(all_hits_by_gene[gene]['genomes'])
+            all_hits_by_gene[gene]['products'] = list(all_hits_by_gene[gene]['products'])
+            all_hits_by_gene[gene]['databases'] = list(all_hits_by_gene[gene]['databases'])
+            
+        master_summary['cross_database_patterns'] = {
+            'total_genes_found': len(all_hits_by_gene),
+            'common_genes': {g: d for g, d in all_hits_by_gene.items() if d['count'] > 1},
+            'top_genes': sorted(
+                [(g, d) for g, d in all_hits_by_gene.items()],
+                key=lambda x: x[1]['count'],
+                reverse=True
+            )[:50]
+        }
+        
+        json_file = os.path.join(output_base, "klebo_abricate_master_summary.json")
+        with open(json_file, 'w') as f:
+            json.dump(master_summary, f, indent=2, default=str)
+        self.logger.info("✓ Created master JSON summary: %s", json_file)
 
     # =========================================================================
     # PROCESS RUNNERS
     # =========================================================================
     def process_single_genome(self, genome_file: str, output_base: str) -> Dict[str, Any]:
-        genome_name = Path(genome_file).stem
-        results = {db: self.run_abricate_single_db(genome_file, db, output_base) for db in self.required_databases}
-        self.create_comprehensive_html_report(genome_name, results, output_base)
+        genome_name = Path(genome_file).stem 
+        results_dir = os.path.join(output_base, genome_name)
+        os.makedirs(results_dir, exist_ok=True)
+        
+        results = {db: self.run_abricate_single_db(genome_file, db, results_dir) for db in self.required_databases}
+        self.create_comprehensive_html_report(genome_name, results, results_dir)
         return {'genome': genome_name, 'results': results, 'total_hits': sum(r['hit_count'] for r in results.values())}
 
     def process_multiple_genomes(self, genome_pattern: str, output_base: str) -> Dict[str, Any]:
@@ -315,10 +538,10 @@ class AbricateExecutor:
                 res = self.process_single_genome(g, output_base)
                 all_results[res['genome']] = res
                 
-        # Generate Batch Summaries
-        for db in self.required_databases:
-            hits = [h for r in all_results.values() for h in r['results'][db]['hits']]
-            if hits: self._create_database_summary_html(db, hits, output_base)
+        # FIX 3: Restore Batch Summaries for TSV, JSON, and Summary HTMLs
+        self.create_database_summaries(all_results, output_base)
+        self.create_database_json_summaries(all_results, output_base)
+        self.create_master_json_summary(all_results, output_base)
             
         return all_results
 
