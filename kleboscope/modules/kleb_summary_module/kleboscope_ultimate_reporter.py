@@ -750,7 +750,7 @@ class KleboscopeUltimateReporter:
 
     def run(self):
         print("=" * 80)
-        print("🧬 Kleboscope Ultimate Reporter – Orchestrator Compliant")
+        print("🧬 Kleboscope Ultimate Reporter")
         print("=" * 80)
         
         html_files = { 'mlst': [], 'qc': [], 'kaptive': [], 'amrfinder': [], 'abricate': defaultdict(list) }
