@@ -1,0 +1,545 @@
+{
+  "23": {
+    "clonal_complex": "CC23", "classification": "Hypervirulent K. pneumoniae (hvKp)",
+    "geographic_distribution": "Asia (especially China, Taiwan, Southeast Asia); also reported globally",
+    "clinical_significance": "Major hypervirulent clone associated with community-acquired liver abscess, often carrying rmpA and aerobactin.",
+    "common_virulence": ["rmpA", "rmpA2", "iucA-iucD (aerobactin)", "iroBCDN (salmochelin)", "ybt (yersiniabactin)"],
+    "outbreak_potential": "HIGH", "typical_capsule": ["K1", "K2"],
+    "resistance_profile": ["Usually susceptible, but ESBL- and carbapenemase-producing variants have emerged (e.g., ST23-KPC)."]
+  },
+  "65": {
+    "clonal_complex": "CC65", "classification": "Hypervirulent K. pneumoniae (hvKp)",
+    "geographic_distribution": "Global, especially Asia",
+    "clinical_significance": "Associated with community-acquired infections, often with K2 capsule and rmpA.",
+    "common_virulence": ["rmpA", "aerobactin", "salmochelin"],
+    "outbreak_potential": "HIGH", "typical_capsule": ["K2"], "resistance_profile": ["Variable."]
+  },
+  "86": {
+    "clonal_complex": "CC86", "classification": "Hypervirulent K. pneumoniae (hvKp)",
+    "geographic_distribution": "Global",
+    "clinical_significance": "Hypervirulent clone, often associated with K2 capsule and community-acquired infections.",
+    "common_virulence": ["rmpA", "aerobactin"],
+    "outbreak_potential": "MEDIUM", "typical_capsule": ["K2"], "resistance_profile": ["Variable."]
+  },
+  "375": {
+    "clonal_complex": "CC375", "classification": "Hypervirulent K. pneumoniae (hvKp)",
+    "geographic_distribution": "China, Vietnam",
+    "clinical_significance": "hvKp with K1 capsule, associated with liver abscess and carrying rmpA.",
+    "common_virulence": ["rmpA", "rmpA2", "aerobactin", "salmochelin"],
+    "outbreak_potential": "HIGH", "typical_capsule": ["K1"], "resistance_profile": ["Variable."]
+  },
+  "380": {
+    "clonal_complex": "CC380", "classification": "Hypervirulent K. pneumoniae (hvKp)",
+    "geographic_distribution": "Asia, Middle East",
+    "clinical_significance": "Emerging hvKp clone, often carrying rmpA and aerobactin; ESBL variants reported.",
+    "common_virulence": ["rmpA", "aerobactin", "salmochelin"],
+    "outbreak_potential": "MEDIUM-HIGH", "typical_capsule": ["K1", "K2", "K20"],
+    "resistance_profile": ["Usually susceptible, but ESBL (e.g., CTX-M-15) reported."]
+  },
+  "412": {
+    "clonal_complex": "CC412", "classification": "Hypervirulent K. pneumoniae (hvKp)",
+    "geographic_distribution": "Asia, Europe",
+    "clinical_significance": "hvKp clone with K2 capsule, often community-acquired.",
+    "common_virulence": ["rmpA", "aerobactin"],
+    "outbreak_potential": "MEDIUM", "typical_capsule": ["K2"], "resistance_profile": ["Variable."]
+  },
+  "11": {
+    "clonal_complex": "CC11", "classification": "MDR K. pneumoniae, major carbapenemase-producing clone",
+    "geographic_distribution": "Global, especially Europe, Asia",
+    "clinical_significance": "One of the most common carbapenem-resistant clones worldwide; frequently carries KPC-2, NDM-1, or OXA-48.",
+    "common_virulence": ["Variable"],
+    "outbreak_potential": "VERY HIGH", "typical_capsule": ["KL64", "KL47"],
+    "resistance_profile": ["Carbapenems, β-lactams, often colistin and tigecycline resistance."]
+  },
+  "14": {
+    "clonal_complex": "CC14", "classification": "MDR K. pneumoniae",
+    "geographic_distribution": "Global", "clinical_significance": "Common ESBL-producing clone, often CTX-M-15.",
+    "common_virulence": ["Variable"], "outbreak_potential": "MEDIUM",
+    "typical_capsule": ["Variable"], "resistance_profile": ["β-lactams, fluoroquinolones, aminoglycosides."]
+  },
+  "15": {
+    "clonal_complex": "CC15", "classification": "MDR K. pneumoniae",
+    "geographic_distribution": "Global, especially Europe and Asia",
+    "clinical_significance": "Frequently associated with ESBLs (e.g., CTX-M-15) and sometimes carbapenemases.",
+    "common_virulence": ["Variable"], "outbreak_potential": "MEDIUM-HIGH",
+    "typical_capsule": ["Variable"], "resistance_profile": ["β-lactams, fluoroquinolones, aminoglycosides."]
+  },
+  "17": {
+    "clonal_complex": "CC17", "classification": "MDR K. pneumoniae, epidemic clone",
+    "geographic_distribution": "Global",
+    "clinical_significance": "Widely distributed MDR clone, often associated with OXA-48 and KPC carbapenemases.",
+    "common_virulence": ["Variable"], "outbreak_potential": "HIGH",
+    "typical_capsule": ["Variable"], "resistance_profile": ["Carbapenems, β-lactams, often colistin resistant."]
+  },
+  "37": {   
+    "clonal_complex": "CC37", "classification": "MDR K. pneumoniae",
+    "geographic_distribution": "Global", "clinical_significance": "Common healthcare-associated clone, often ESBL-positive (CTX-M-15).",
+    "common_virulence": ["Variable"], "outbreak_potential": "MEDIUM",
+    "typical_capsule": ["Variable"], "resistance_profile": ["β-lactams, aminoglycosides."]
+  },
+  "101": {
+    "clonal_complex": "CC101", "classification": "MDR K. pneumoniae",
+    "geographic_distribution": "Asia, Europe", "clinical_significance": "Often associated with NDM carbapenemase.",
+    "common_virulence": ["Variable"], "outbreak_potential": "MEDIUM",
+    "typical_capsule": ["Variable"], "resistance_profile": ["Carbapenems, β-lactams."]
+  },
+  "147": {
+    "clonal_complex": "CC147", "classification": "MDR K. pneumoniae, epidemic clone",
+    "geographic_distribution": "Global",
+    "clinical_significance": "Major carbapenem-resistant clone, frequently carries KPC-2, KPC-3, NDM-1.",
+    "common_virulence": ["Variable"], "outbreak_potential": "VERY HIGH",
+    "typical_capsule": ["Variable"], "resistance_profile": ["Carbapenems, β-lactams, often colistin resistant."]
+  },
+  "258": {
+    "clonal_complex": "CC258", "classification": "MDR K. pneumoniae, global epidemic clone",
+    "geographic_distribution": "Global", "clinical_significance": "Most prevalent KPC-producing clone worldwide. Highly multidrug-resistant.",
+    "common_virulence": ["Variable"], "outbreak_potential": "VERY HIGH",
+    "typical_capsule": ["Variable (e.g., KL106, KL107)"],
+    "resistance_profile": ["Carbapenems, β-lactams, aminoglycosides, fluoroquinolones, often colistin resistant."]
+  },
+  "307": {   
+    "clonal_complex": "CC307", "classification": "MDR K. pneumoniae, emerging high-risk clone",
+    "geographic_distribution": "Global, especially Europe, North America",
+    "clinical_significance": "Emerging high-risk clone with ESBLs and carbapenemases (OXA-48, KPC).",
+    "common_virulence": ["Variable"], "outbreak_potential": "HIGH",
+    "typical_capsule": ["Variable"], "resistance_profile": ["Carbapenems, β-lactams, often colistin resistant."]
+  },
+  "392": {
+    "clonal_complex": "CC392", "classification": "MDR K. pneumoniae",
+    "geographic_distribution": "Europe, Asia", "clinical_significance": "Often carries OXA-48 carbapenemase.",
+    "common_virulence": ["Variable"], "outbreak_potential": "MEDIUM",
+    "typical_capsule": ["Variable"], "resistance_profile": ["Carbapenems (OXA-48), β-lactams."]
+  },
+  "395": {   
+    "clonal_complex": "CC395", "classification": "MDR K. pneumoniae",
+    "geographic_distribution": "Asia", "clinical_significance": "Often associated with NDM carbapenemase (NDM-1, NDM-5).",
+    "common_virulence": ["Variable"], "outbreak_potential": "MEDIUM",
+    "typical_capsule": ["Variable"], "resistance_profile": ["Carbapenems, β-lactams."]
+  },
+  "512": {
+    "clonal_complex": "CC512", "classification": "MDR K. pneumoniae",
+    "geographic_distribution": "Europe, America", "clinical_significance": "Carries KPC carbapenemase, associated with hospital outbreaks.",
+    "common_virulence": ["Variable"], "outbreak_potential": "HIGH",
+    "typical_capsule": ["Variable"], "resistance_profile": ["Carbapenems, β-lactams, fluoroquinolones."]
+  },
+  "1": {
+    "clonal_complex": "CC1", "classification": "Classical / susceptible", "geographic_distribution": "Global",
+    "clinical_significance": "Common in community infections; generally susceptible.",
+    "common_virulence": ["Variable"], "outbreak_potential": "LOW",
+    "typical_capsule": ["Variable"], "resistance_profile": ["Variable."]
+  },
+  "2": {
+    "clonal_complex": "CC2", "classification": "Classical", "geographic_distribution": "Global",
+    "clinical_significance": "Common community strain, generally susceptible.",
+    "common_virulence": ["Limited"], "outbreak_potential": "LOW",
+    "typical_capsule": ["Variable"], "resistance_profile": ["Usually susceptible."]
+  },
+  "12": {
+    "clonal_complex": "CC12", "classification": "MDR K. pneumoniae", "geographic_distribution": "Global",
+    "clinical_significance": "ESBL producer, often CTX-M-15.",
+    "common_virulence": ["Variable"], "outbreak_potential": "MEDIUM",
+    "typical_capsule": ["Variable"], "resistance_profile": ["β-lactams", "fluoroquinolones."]
+  },
+  "102": {
+    "clonal_complex": "CC102", "classification": "MDR K. pneumoniae", "geographic_distribution": "Asia, Europe",
+    "clinical_significance": "Often associated with NDM carbapenemase.",
+    "common_virulence": ["Variable"], "outbreak_potential": "MEDIUM-HIGH",
+    "typical_capsule": ["Variable"], "resistance_profile": ["Carbapenems", "β-lactams."]
+  },
+  "252": {   
+    "clonal_complex": "Unknown", "classification": "Uncharacterized lineage", "geographic_distribution": "Not well characterised",
+    "clinical_significance": "Limited data; appears sporadically in databases. May be susceptible or carry ESBLs.",
+    "common_virulence": ["Unknown"], "outbreak_potential": "LOW",
+    "typical_capsule": ["Unknown"], "resistance_profile": ["Not well defined."]
+  },
+  "2096": {   
+        "clonal_complex": "Unknown",
+        "classification": "Uncharacterized lineage — epidemiology unknown",
+        "geographic_distribution": "Not well characterised",
+        "clinical_significance": "Recently identified; not widely studied. May represent a local or emerging clone.",
+        "common_virulence": ["Unknown"],
+        "outbreak_potential": "UNKNOWN",
+        "typical_capsule": ["Unknown"],
+        "resistance_profile": ["Unknown."]
+    },
+    "4": {
+        "clonal_complex": "CC4",
+        "classification": "Classical",
+        "geographic_distribution": "Global",
+        "clinical_significance": "Common, often susceptible.",
+        "common_virulence": ["Limited"],
+        "outbreak_potential": "LOW",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["Usually susceptible."]
+    },
+    "5": {
+        "clonal_complex": "CC5",
+        "classification": "Classical",
+        "geographic_distribution": "Global",
+        "clinical_significance": "Common, often susceptible.",
+        "common_virulence": ["Limited"],
+        "outbreak_potential": "LOW",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["Usually susceptible."]
+    },
+    "6": {
+        "clonal_complex": "CC6",
+        "classification": "Classical",
+        "geographic_distribution": "Global",
+        "clinical_significance": "Common, often susceptible.",
+        "common_virulence": ["Limited"],
+        "outbreak_potential": "LOW",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["Usually susceptible."]
+    },
+    "7": {
+        "clonal_complex": "CC7",
+        "classification": "Classical",
+        "geographic_distribution": "Global",
+        "clinical_significance": "Common, often susceptible.",
+        "common_virulence": ["Limited"],
+        "outbreak_potential": "LOW",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["Usually susceptible."]
+    },
+    "8": {
+        "clonal_complex": "CC8",
+        "classification": "Classical",
+        "geographic_distribution": "Global",
+        "clinical_significance": "Common, often susceptible.",
+        "common_virulence": ["Limited"],
+        "outbreak_potential": "LOW",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["Usually susceptible."]
+    },
+    "9": {
+        "clonal_complex": "CC9",
+        "classification": "Classical",
+        "geographic_distribution": "Global",
+        "clinical_significance": "Common, often susceptible.",
+        "common_virulence": ["Limited"],
+        "outbreak_potential": "LOW",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["Usually susceptible."]
+    },
+    "10": {
+        "clonal_complex": "CC10",
+        "classification": "Classical",
+        "geographic_distribution": "Global",
+        "clinical_significance": "Common, often susceptible.",
+        "common_virulence": ["Limited"],
+        "outbreak_potential": "LOW",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["Usually susceptible."]
+    },
+    "18": {
+        "clonal_complex": "CC18",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Global",
+        "clinical_significance": "Often associated with ESBLs.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["β‑lactams", "aminoglycosides."]
+    },
+    "20": {
+        "clonal_complex": "CC20",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Global",
+        "clinical_significance": "ESBL producer, occasionally carbapenemase.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["β‑lactams", "fluoroquinolones."]
+    },
+    "22": {
+        "clonal_complex": "CC22",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Global",
+        "clinical_significance": "ESBL producer.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["β‑lactams."]
+    },
+    "24": {
+        "clonal_complex": "CC24",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Global",
+        "clinical_significance": "ESBL producer, sometimes carbapenemase.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["β‑lactams", "carbapenems (rare)."]
+    },
+    "25": {
+        "clonal_complex": "CC25",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Global",
+        "clinical_significance": "ESBL producer.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["β‑lactams", "fluoroquinolones."]
+    },
+    "26": {
+        "clonal_complex": "CC26",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Global",
+        "clinical_significance": "ESBL producer.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["β‑lactams."]
+    },
+    "27": {
+        "clonal_complex": "CC27",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Global",
+        "clinical_significance": "ESBL producer, occasionally carbapenemase.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["β‑lactams", "carbapenems (rare)."]
+    },
+    "28": {
+        "clonal_complex": "CC28",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Global",
+        "clinical_significance": "ESBL producer.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["β‑lactams."]
+    },
+    "29": {
+        "clonal_complex": "CC29",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Global",
+        "clinical_significance": "ESBL producer.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["β‑lactams."]
+    },
+    "30": {
+        "clonal_complex": "CC30",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Global",
+        "clinical_significance": "ESBL producer.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["β‑lactams."]
+    },
+    "31": {
+        "clonal_complex": "CC31",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Global",
+        "clinical_significance": "ESBL producer.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["β‑lactams."]
+    },
+    "32": {
+        "clonal_complex": "CC32",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Global",
+        "clinical_significance": "ESBL producer, often CTX‑M‑15.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["β‑lactams", "fluoroquinolones."]
+    },
+    "33": {
+        "clonal_complex": "CC33",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Global",
+        "clinical_significance": "ESBL producer.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["β‑lactams."]
+    },
+    "34": {
+        "clonal_complex": "CC34",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Global",
+        "clinical_significance": "ESBL producer.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["β‑lactams."]
+    },
+    "35": {
+        "clonal_complex": "CC35",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Global",
+        "clinical_significance": "ESBL producer.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["β‑lactams."]
+    },
+    "36": {
+        "clonal_complex": "CC36",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Global",
+        "clinical_significance": "ESBL producer.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["β‑lactams."]
+    },
+    "38": {
+        "clonal_complex": "CC38",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Global",
+        "clinical_significance": "ESBL producer.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["β‑lactams."]
+    },
+    "39": {
+        "clonal_complex": "CC39",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Global",
+        "clinical_significance": "ESBL producer.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["β‑lactams."]
+    },
+    "40": {
+        "clonal_complex": "CC40",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Global",
+        "clinical_significance": "ESBL producer.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["β‑lactams."]
+    },
+    "41": {
+        "clonal_complex": "CC41",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Global",
+        "clinical_significance": "ESBL producer.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["β‑lactams."]
+    },
+    "42": {
+        "clonal_complex": "CC42",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Global",
+        "clinical_significance": "ESBL producer.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["β‑lactams."]
+    },
+    "43": {
+        "clonal_complex": "CC43",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Global",
+        "clinical_significance": "ESBL producer.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["β‑lactams."]
+    },
+    "44": {
+        "clonal_complex": "CC44",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Global",
+        "clinical_significance": "ESBL producer.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["β‑lactams."]
+    },
+    "46": {
+        "clonal_complex": "CC46",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Global",
+        "clinical_significance": "ESBL producer.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["β‑lactams."]
+    },
+    "47": {
+        "clonal_complex": "CC47",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Global",
+        "clinical_significance": "ESBL producer.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["β‑lactams."]
+    },
+    "49": {
+        "clonal_complex": "CC49",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Global",
+        "clinical_significance": "ESBL producer.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["β‑lactams."]
+    },
+    "50": {
+        "clonal_complex": "CC50",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Global",
+        "clinical_significance": "ESBL producer.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["β‑lactams."]
+    },
+    "100": {
+        "clonal_complex": "CC100",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Global",
+        "clinical_significance": "ESBL producer, sometimes carbapenemase.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["β‑lactams", "carbapenems (rare)."]
+    },
+    "103": {
+        "clonal_complex": "CC103",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Asia",
+        "clinical_significance": "NDM producer.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["Carbapenems."]
+    },
+    "104": {
+        "clonal_complex": "CC104",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Europe",
+        "clinical_significance": "OXA‑48 producer.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["Carbapenems (OXA‑48)."]
+    },
+    "105": {
+        "clonal_complex": "CC105",
+        "classification": "MDR K. pneumoniae",
+        "geographic_distribution": "Global",
+        "clinical_significance": "ESBL producer.",
+        "common_virulence": ["Variable"],
+        "outbreak_potential": "MEDIUM",
+        "typical_capsule": ["Variable"],
+        "resistance_profile": ["β‑lactams."]
+    }
+}
