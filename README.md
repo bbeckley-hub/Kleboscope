@@ -8,6 +8,10 @@
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![GitHub Issues](https://img.shields.io/github/issues/bbeckley-hub/kleboscope)](https://github.com/bbeckley-hub/Kleboscope/issues)
+[![Docker Pulls](https://img.shields.io/docker/pulls/bbeckleyhub/kleboscope)](https://hub.docker.com/r/bbeckleyhub/kleboscope)
+[![Anaconda-Server Badge](https://anaconda.org/bbeckley-hub/kleboscope/badges/latest_release_relative_date.svg)](https://anaconda.org/bbeckley-hub/kleboscope)
+[![Anaconda-Server Badge](https://anaconda.org/bbeckley-hub/kleboscope/badges/platforms.svg)](https://anaconda.org/bbeckley-hub/kleboscope)
+[![Anaconda-Server Badge](https://anaconda.org/bbeckley-hub/kleboscope/badges/latest_release_date.svg)](https://anaconda.org/bbeckley-hub/kleboscope)
 
 ---
 
@@ -28,6 +32,7 @@
 - [✨ Key Features](#-key-features)
 - [⚡ Quick Start](#-quick-start)
 - [🔧 Installation](#-installation)
+- [🐳 Docker Usage](#-docker-usage)
 - [🚀 Usage Guide](#-usage-guide)
 - [📁 Output Structure](#-output-structure)
 - [🔍 Analytical Modules](#-analytical-modules)
@@ -179,6 +184,54 @@ All external tools and databases are **bundled** with Kleboscope as build depend
 - Bundled binaries: MLST, Kaptive, ABRicate, AMRfinderPlus
 
 No separate installation of external tools is required.
+
+---
+
+## 🐳 **Docker Usage**
+
+For users who prefer a containerized environment or cannot install Conda, we provide a Docker image with all dependencies pre‑installed and ABRicate databases pre‑configured.
+
+### Pull the Docker image
+
+```bash
+docker pull bbeckleyhub/kleboscope:latest
+```
+
+### Run Kleboscope (output files owned by root)
+
+```bash
+docker run --rm -v $(pwd):/data bbeckleyhub/kleboscope:latest -i "/data/*.fna" -o /data/output
+```
+
+> **Note:** Inside the container, files are written as `root`. To take ownership of the results on your host, run:
+> ```bash
+> sudo chown -R $USER:$USER ./output
+> ```
+> (If you don’t have `sudo`, see the Singularity alternative below.)
+
+### Run with Singularity (HPC‑friendly, no `sudo` needed)
+
+On HPC systems that support [Singularity/Apptainer](https://sylabs.io/singularity/), convert the Docker image and run – the output files will automatically belong to your user.
+
+```bash
+singularity pull kleboscope.sif docker://bbeckleyhub/kleboscope:latest
+singularity run -B $(pwd):/data kleboscope.sif -i "/data/*.fna" -o /data/output
+```
+
+### Docker Hub Repository
+
+All releases are available at:  
+[https://hub.docker.com/r/bbeckleyhub/kleboscope](https://hub.docker.com/r/bbeckleyhub/kleboscope)
+
+### Advanced Docker Options
+
+```bash
+# Run with custom threads
+docker run --rm -v $(pwd):/data bbeckleyhub/kleboscope:latest -i "/data/*.fna" -o /data/output -t 8
+
+# Skip specific modules for faster testing
+docker run --rm -v $(pwd):/data bbeckleyhub/kleboscope:latest -i "/data/*.fna" -o /data/output --skip-qc --skip-amr
+```
 
 ---
 
