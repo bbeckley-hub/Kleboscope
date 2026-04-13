@@ -1,4 +1,4 @@
-name:kleboscope
+name: kleboscope
 channels:
   - conda-forge
   - bioconda

@@ -5,7 +5,7 @@ Comprehensive AMR analysis with interactive per‑genome reports and clean batch
 Author: Brown Beckley
 Affiliation: University of Ghana Medical School
 Version: 1.0.0
-Uses BUNDLED AMRFinderPlus 4.2.7 with database 2026-01-21.1
+Uses bundled AMRfinderPlus with dynamic latest database version.
 """
 
 import subprocess
@@ -32,7 +32,6 @@ class KleboAMRfinderPlus:
         # Get module directory and set bundled paths
         self.module_dir = os.path.dirname(os.path.abspath(__file__))
         self.bundled_amrfinder = os.path.join(self.module_dir, "bin", "amrfinder")
-        self.bundled_database = os.path.join(self.module_dir, "data", "amrfinder_db", "2026-01-21.1")
         
         # Initialize available_ram before calculating cpus
         self.available_ram = self._get_available_ram()
@@ -180,7 +179,7 @@ class KleboAMRfinderPlus:
             "affiliation": "University of Ghana Medical School",
             "analysis_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "amrfinder_version": "4.2.7",
-            "database_version": "2026-01-21.1"
+            "database_version": "auto-detected"
         }
         
         self.science_quotes = [
@@ -194,7 +193,12 @@ class KleboAMRfinderPlus:
             "Nothing in life is to be feared, it is only to be understood. - Marie Curie",
             "Kleboscope turns genomic complexity into actionable insights for AMR surveillance. - Brown Beckley"
         ]
-    
+        
+        # Ensure database is available (download if missing)
+        self.bundled_database = self._get_latest_database_path()
+        self.metadata["database_version"] = os.path.basename(self.bundled_database)
+        self.logger.info(f"Using database version: {self.metadata['database_version']}")
+
     def _setup_logging(self):
         logging.basicConfig(
             level=logging.INFO,
@@ -245,6 +249,54 @@ class KleboAMRfinderPlus:
             self.logger.info("💡 Performance: High-speed mode")
         else:
             self.logger.info("💡 Performance: MAXIMUM SPEED MODE 🚀")
+
+    def _get_latest_database_path(self) -> str:
+        """Return path to the most recent AMR database version under data/amrfinder_db/"""
+        db_parent = os.path.join(self.module_dir, "data", "amrfinder_db")
+        if not os.path.isdir(db_parent):
+            self.logger.warning(f"Database parent directory not found: {db_parent}")
+            self._run_amrfinder_update()
+            db_parent = os.path.join(self.module_dir, "data", "amrfinder_db")
+        
+        # Find all subdirectories that match the version pattern (YYYY-MM-DD.N)
+        version_dirs = []
+        for entry in os.listdir(db_parent):
+            full_path = os.path.join(db_parent, entry)
+            if os.path.isdir(full_path) and re.match(r'^\d{4}-\d{2}-\d{2}\.\d+$', entry):
+                version_dirs.append((entry, full_path))
+        
+        if not version_dirs:
+            self.logger.warning(f"No version directory found in {db_parent}. Running amrfinder_update to download database...")
+            self._run_amrfinder_update()
+            # Scan again
+            version_dirs = []
+            for entry in os.listdir(db_parent):
+                full_path = os.path.join(db_parent, entry)
+                if os.path.isdir(full_path) and re.match(r'^\d{4}-\d{2}-\d{2}\.\d+$', entry):
+                    version_dirs.append((entry, full_path))
+            if not version_dirs:
+                raise RuntimeError(f"Still no version directory found after update in {db_parent}")
+
+        # Sort by version string (lexicographically works because of the format)
+        version_dirs.sort(key=lambda x: x[0], reverse=True)
+        latest_version, latest_path = version_dirs[0]
+        self.logger.info(f"Latest AMR database version: {latest_version} at {latest_path}")
+        return latest_path
+    
+    def _run_amrfinder_update(self):
+        """Run amrfinder_update to download the latest database"""
+        update_cmd = os.path.join(self.module_dir, "bin", "amrfinder_update")
+        if not os.path.exists(update_cmd):
+            raise FileNotFoundError(f"amrfinder_update not found at {update_cmd}. Run database.sh first.")
+        db_parent = os.path.join(self.module_dir, "data", "amrfinder_db")
+        os.makedirs(db_parent, exist_ok=True)
+        self.logger.info("Downloading latest AMR database via amrfinder_update (this may take several minutes)...")
+        try:
+            subprocess.run([update_cmd, "--database", db_parent], check=True, capture_output=True, text=True)
+            self.logger.info("AMR database download completed successfully.")
+        except subprocess.CalledProcessError as e:
+            self.logger.error(f"amrfinder_update failed: {e.stderr}")
+            raise RuntimeError("Failed to download AMR database. Please check your internet connection and permissions.")
     
     def check_amrfinder_installed(self) -> bool:
         try:
@@ -258,15 +310,14 @@ class KleboAMRfinderPlus:
                                     capture_output=True, text=True, check=True)
             version_line = result.stdout.strip()
             self.logger.info(f"Bundled AMRfinderPlus version: {version_line}")
-            if os.path.exists(self.bundled_database):
+            if self.bundled_database and os.path.exists(self.bundled_database):
                 self.logger.info(f"✅ Bundled database found: {self.bundled_database}")
-                db_version_file = os.path.join(self.bundled_database, "version.txt")
-                if os.path.exists(db_version_file):
-                    with open(db_version_file, 'r') as f:
-                        db_version = f.read().strip()
-                        self.logger.info(f"✅ Database version: {db_version}")
+                db_version = os.path.basename(self.bundled_database)
+                self.metadata["database_version"] = db_version
+                self.logger.info(f"✅ Database version: {db_version}")
             else:
                 self.logger.warning(f"⚠️ Bundled database not found at: {self.bundled_database}")
+                return False
             return True
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
             self.logger.error(f"Bundled AMRfinderPlus check failed: {e}")
@@ -859,7 +910,7 @@ class KleboAMRfinderPlus:
             <p><strong>Email:</strong> brownbeckley94@gmail.com</p>
             <p><strong>GitHub:</strong> <a href="https://github.com/bbeckley-hub" target="_blank">https://github.com/bbeckley-hub</a></p>
             <p><strong>Affiliation:</strong> University of Ghana Medical School - Department of Medical Biochemistry</p>
-            <p style="margin-top: 20px; font-size: 0.9em;">Analysis performed using Kleboscope AMRfinderPlus v{self.metadata['version']}</p>
+            <p style="margin-top: 20px; font-size: 0.9em;"></p>
         </div>
     </div>
 </body>
@@ -1217,7 +1268,7 @@ class KleboAMRfinderPlus:
         <h2>📈 Gene Frequency</h2>
         <div class="table-responsive">
             <table class="gene-table">
-                <thead> <tr><th>Gene</th><th>Frequency</th><th>Prevalence</th><th>Risk Level</th><th>Genomes</th></tr> </thead>
+                <thead> <tr><th>Gene</th><th>Frequency</th><th>Prevalence</th><th>Risk Level</th><th>Genomes</th> </tr> </thead>
                 <tbody>
 """
         for gene, genomes in sorted(gene_frequency.items(), key=lambda x: len(x[1]), reverse=True):
