@@ -32,6 +32,7 @@ class KleboAMRfinderPlus:
         # Get module directory and set bundled paths
         self.module_dir = os.path.dirname(os.path.abspath(__file__))
         self.bundled_amrfinder = os.path.join(self.module_dir, "bin", "amrfinder")
+        self.bundled_update = os.path.join(self.module_dir, "bin", "amrfinder_update")
         
         # Initialize available_ram before calculating cpus
         self.available_ram = self._get_available_ram()
@@ -40,39 +41,27 @@ class KleboAMRfinderPlus:
         self.cpus = self._calculate_optimal_cpus(cpus)
         
         # ==================== K. PNEUMONIAE SPECIFIC GENE SETS ====================
-        # CRITICAL CARBAPENEMASE genes
         self.critical_carbapenemases = {
             'blaKPC', 'blaNDM', 'blaIMP', 'blaVIM', 'blaOXA-48', 'blaOXA-181', 'blaOXA-232',
             'blaOXA-244', 'blaGES-2', 'blaGES-4', 'blaGES-5', 'blaGES-6', 'blaGES-7', 'blaGES-8',
             'blaGES-11', 'blaGES-14', 'blaGES-15', 'blaGES-16', 'blaGES-17', 'blaGES-18', 'blaGES-19',
             'blaGES-20', 'blaGES-21', 'blaGES-22', 'blaGES-23', 'blaGES-24', 'blaGES-25', 'blaGES-26',
             'blaGES-27', 'blaGES-28', 'blaIMI', 'blaSME', 'blaNMC', 'blaCcrA', 'blaBIC', 'blaDIM',
-            'blaTMB', 'blaSPM', 'blaGIM', 'blaSIM', 'blaAIM', 'blaFRI', 'blaFRI-1', 'blaFRI-2','blaDHA-1', 'blaKPC-2', 'blaNDM-5', 'blaOXA-1', 'blaSHV-11', 'blaSHV-11', 'blaSHV-11', 'blaTEM-1'
+            'blaTMB', 'blaSPM', 'blaGIM', 'blaSIM', 'blaAIM', 'blaFRI', 'blaFRI-1', 'blaFRI-2'
         }
-        
-        # CRITICAL ESBL genes
         self.critical_esbls = {
             'blaCTX-M-15', 'blaCTX-M-14', 'blaCTX-M-1', 'blaCTX-M-2', 'blaCTX-M-3', 'blaCTX-M-4',
             'blaCTX-M-5', 'blaCTX-M-6', 'blaCTX-M-7', 'blaCTX-M-8', 'blaCTX-M-9', 'blaCTX-M-10',
-            'blaCTX-M-11', 'blaCTX-M-12', 'blaCTX-M-13', 'blaCTX-M-16', 'blaCTX-M-17', 'blaCTX-M-18',
-            'blaCTX-M-19', 'blaCTX-M-20', 'blaCTX-M-21', 'blaCTX-M-22', 'blaCTX-M-23', 'blaCTX-M-24',
-            'blaCTX-M-25', 'blaCTX-M-26', 'blaCTX-M-27', 'blaCTX-M-28', 'blaCTX-M-29', 'blaCTX-M-30',
-            'blaSHV', 'blaTEM', 'blaPER', 'blaVEB', 'blaGES-1', 'blaGES-3', 'blaBEL', 'blaBES', 'blaCTX-M-15'
+            'blaSHV', 'blaTEM', 'blaPER', 'blaVEB', 'blaGES-1', 'blaGES-3', 'blaBEL', 'blaBES'
         }
-        
-        # CRITICAL Colistin resistance genes
         self.critical_colistin = {
             'mcr-1', 'mcr-1.1', 'mcr-2', 'mcr-3', 'mcr-3.1', 'mcr-3.2', 'mcr-3.3', 'mcr-3.4', 'mcr-3.5',
             'mcr-4', 'mcr-5', 'mcr-6', 'mcr-7', 'mcr-8', 'mcr-9', 'mcr-10',
             'pmrA', 'pmrB', 'pmrC', 'lpxA', 'lpxC', 'lpxD', 'arnA', 'arnB', 'arnC', 'arnD', 'eptA'
         }
-        
-        # CRITICAL Aminoglycoside resistance (16S rRNA methyltransferases)
         self.critical_aminoglycoside = {
             'armA', 'rmtA', 'rmtB', 'rmtC', 'rmtD', 'rmtE', 'rmtF', 'rmtG', 'rmtH', 'npmA'
         }
-        
-        # HIGH RISK resistance genes for K. pneumoniae
         self.high_risk_resistance = {
             # ESBLs not in critical list
             'blaCTX-M-31', 'blaCTX-M-32', 'blaCTX-M-33', 'blaCTX-M-34', 'blaCTX-M-35', 'blaCTX-M-36',
@@ -80,46 +69,6 @@ class KleboAMRfinderPlus:
             'blaCTX-M-43', 'blaCTX-M-44', 'blaCTX-M-45', 'blaCTX-M-46', 'blaCTX-M-47', 'blaCTX-M-48',
             'blaCTX-M-49', 'blaCTX-M-50', 'blaCTX-M-51', 'blaCTX-M-52', 'blaCTX-M-53', 'blaCTX-M-54',
             'blaCTX-M-55', 'blaCTX-M-56', 'blaCTX-M-57', 'blaCTX-M-58', 'blaCTX-M-59', 'blaCTX-M-60',
-            'blaCTX-M-61', 'blaCTX-M-62', 'blaCTX-M-63', 'blaCTX-M-64', 'blaCTX-M-65', 'blaCTX-M-66',
-            'blaCTX-M-67', 'blaCTX-M-68', 'blaCTX-M-69', 'blaCTX-M-70', 'blaCTX-M-71', 'blaCTX-M-72',
-            'blaCTX-M-73', 'blaCTX-M-74', 'blaCTX-M-75', 'blaCTX-M-76', 'blaCTX-M-77', 'blaCTX-M-78',
-            'blaCTX-M-79', 'blaCTX-M-80', 'blaCTX-M-81', 'blaCTX-M-82', 'blaCTX-M-83', 'blaCTX-M-84',
-            'blaCTX-M-85', 'blaCTX-M-86', 'blaCTX-M-87', 'blaCTX-M-88', 'blaCTX-M-89', 'blaCTX-M-90',
-            'blaCTX-M-91', 'blaCTX-M-92', 'blaCTX-M-93', 'blaCTX-M-94', 'blaCTX-M-95', 'blaCTX-M-96',
-            'blaCTX-M-97', 'blaCTX-M-98', 'blaCTX-M-99', 'blaCTX-M-100', 'blaCTX-M-101', 'blaCTX-M-102',
-            'blaCTX-M-103', 'blaCTX-M-104', 'blaCTX-M-105', 'blaCTX-M-106', 'blaCTX-M-107', 'blaCTX-M-108',
-            'blaCTX-M-109', 'blaCTX-M-110', 'blaCTX-M-111', 'blaCTX-M-112', 'blaCTX-M-113', 'blaCTX-M-114',
-            'blaCTX-M-115', 'blaCTX-M-116', 'blaCTX-M-117', 'blaCTX-M-118', 'blaCTX-M-119', 'blaCTX-M-120',
-            'blaCTX-M-121', 'blaCTX-M-122', 'blaCTX-M-123', 'blaCTX-M-124', 'blaCTX-M-125', 'blaCTX-M-126',
-            'blaCTX-M-127', 'blaCTX-M-128', 'blaCTX-M-129', 'blaCTX-M-130', 'blaCTX-M-131', 'blaCTX-M-132',
-            'blaCTX-M-133', 'blaCTX-M-134', 'blaCTX-M-135', 'blaCTX-M-136', 'blaCTX-M-137', 'blaCTX-M-138',
-            'blaCTX-M-139', 'blaCTX-M-140', 'blaCTX-M-141', 'blaCTX-M-142', 'blaCTX-M-143', 'blaCTX-M-144',
-            'blaCTX-M-145', 'blaCTX-M-146', 'blaCTX-M-147', 'blaCTX-M-148', 'blaCTX-M-149', 'blaCTX-M-150',
-            'blaCTX-M-151', 'blaCTX-M-152', 'blaCTX-M-153', 'blaCTX-M-154', 'blaCTX-M-155', 'blaCTX-M-156',
-            'blaCTX-M-157', 'blaCTX-M-158', 'blaCTX-M-159', 'blaCTX-M-160', 'blaCTX-M-161', 'blaCTX-M-162',
-            'blaCTX-M-163', 'blaCTX-M-164', 'blaCTX-M-165', 'blaCTX-M-166', 'blaCTX-M-167', 'blaCTX-M-168',
-            'blaCTX-M-169', 'blaCTX-M-170', 'blaCTX-M-171', 'blaCTX-M-172', 'blaCTX-M-173', 'blaCTX-M-174',
-            'blaCTX-M-175', 'blaCTX-M-176', 'blaCTX-M-177', 'blaCTX-M-178', 'blaCTX-M-179', 'blaCTX-M-180',
-            'blaCTX-M-181', 'blaCTX-M-182', 'blaCTX-M-183', 'blaCTX-M-184', 'blaCTX-M-185', 'blaCTX-M-186',
-            'blaCTX-M-187', 'blaCTX-M-188', 'blaCTX-M-189', 'blaCTX-M-190', 'blaCTX-M-191', 'blaCTX-M-192',
-            'blaCTX-M-193', 'blaCTX-M-194', 'blaCTX-M-195', 'blaCTX-M-196', 'blaCTX-M-197', 'blaCTX-M-198',
-            'blaCTX-M-199', 'blaCTX-M-200', 'blaCTX-M-201', 'blaCTX-M-202', 'blaCTX-M-203', 'blaCTX-M-204',
-            'blaCTX-M-205', 'blaCTX-M-206', 'blaCTX-M-207', 'blaCTX-M-208', 'blaCTX-M-209', 'blaCTX-M-210',
-            'blaCTX-M-211', 'blaCTX-M-212', 'blaCTX-M-213', 'blaCTX-M-214', 'blaCTX-M-215', 'blaCTX-M-216',
-            'blaCTX-M-217', 'blaCTX-M-218', 'blaCTX-M-219', 'blaCTX-M-220', 'blaCTX-M-221', 'blaCTX-M-222',
-            'blaCTX-M-223', 'blaCTX-M-224', 'blaCTX-M-225', 'blaCTX-M-226', 'blaCTX-M-227', 'blaCTX-M-228',
-            'blaCTX-M-229', 'blaCTX-M-230', 'blaCTX-M-231', 'blaCTX-M-232', 'blaCTX-M-233', 'blaCTX-M-234',
-            'blaCTX-M-235', 'blaCTX-M-236', 'blaCTX-M-237', 'blaCTX-M-238', 'blaCTX-M-239', 'blaCTX-M-240',
-            'blaCTX-M-241', 'blaCTX-M-242', 'blaCTX-M-243', 'blaCTX-M-244', 'blaCTX-M-245', 'blaCTX-M-246',
-            'blaCTX-M-247', 'blaCTX-M-248', 'blaCTX-M-249', 'blaCTX-M-250', 'blaCTX-M-251', 'blaCTX-M-252',
-            'blaCTX-M-253', 'blaCTX-M-254', 'blaCTX-M-255', 'blaCTX-M-256', 'blaCTX-M-257', 'blaCTX-M-258',
-            'blaCTX-M-259', 'blaCTX-M-260', 'blaCTX-M-261', 'blaCTX-M-262', 'blaCTX-M-263', 'blaCTX-M-264',
-            'blaCTX-M-265', 'blaCTX-M-266', 'blaCTX-M-267', 'blaCTX-M-268', 'blaCTX-M-269', 'blaCTX-M-270',
-            'blaCTX-M-271', 'blaCTX-M-272', 'blaCTX-M-273', 'blaCTX-M-274', 'blaCTX-M-275', 'blaCTX-M-276',
-            'blaCTX-M-277', 'blaCTX-M-278', 'blaCTX-M-279', 'blaCTX-M-280', 'blaCTX-M-281', 'blaCTX-M-282',
-            'blaCTX-M-283', 'blaCTX-M-284', 'blaCTX-M-285', 'blaCTX-M-286', 'blaCTX-M-287', 'blaCTX-M-288',
-            'blaCTX-M-289', 'blaCTX-M-290', 'blaCTX-M-291', 'blaCTX-M-292', 'blaCTX-M-293', 'blaCTX-M-294',
-            'blaCTX-M-295', 'blaCTX-M-296', 'blaCTX-M-297', 'blaCTX-M-298', 'blaCTX-M-299', 'blaCTX-M-300',
             # AmpC beta-lactamases
             'blaCMY', 'blaDHA', 'blaACC', 'blaMIR', 'blaACT', 'blaFOX', 'blaMOX', 'blaCIT', 'blaEBC',
             # Aminoglycoside resistance (non‑critical)
@@ -138,7 +87,7 @@ class KleboAMRfinderPlus:
             'cat', 'catA1', 'catA2', 'catB2', 'catB3', 'cmlA', 'cmlA1', 'cmlA5', 'floR',
             # Macrolide resistance
             'ermA', 'ermB', 'ermC', 'ermF', 'ermX', 'mphA', 'mphB', 'msrA',
-            # Fosfomycin resistance (non‑critical)
+            # Fosfomycin resistance
             'fosA', 'fosB', 'fosC', 'fosX',
             # Multidrug efflux pumps
             'acrA', 'acrB', 'acrD', 'acrF', 'acrS', 'acrZ',
@@ -149,7 +98,6 @@ class KleboAMRfinderPlus:
             'mdtK', 'mdtL', 'mdtM', 'mdtN', 'mdtO', 'mdtP',
             'emrA', 'emrB', 'emrD', 'emrE', 'emrK', 'emrY'
         }
-
         self.high_risk_genes = set.union(
             self.critical_carbapenemases,
             self.critical_esbls,
@@ -172,7 +120,7 @@ class KleboAMRfinderPlus:
 """
         self.metadata = {
             "tool_name": "Kleboscope AMRfinderPlus",
-            "version": "1.0.0",
+            "version": "1.1.0",
             "authors": ["Brown Beckley"],
             "email": "brownbeckley94@gmail.com",
             "github": "https://github.com/bbeckley-hub",
@@ -196,7 +144,7 @@ class KleboAMRfinderPlus:
         
         # Ensure database is available (download if missing)
         self.bundled_database = self._get_latest_database_path()
-        self.metadata["database_version"] = os.path.basename(self.bundled_database)
+        self.metadata["database_version"] = os.path.basename(self.bundled_database) if self.bundled_database else "None"
         self.logger.info(f"Using database version: {self.metadata['database_version']}")
 
     def _setup_logging(self):
@@ -250,6 +198,20 @@ class KleboAMRfinderPlus:
         else:
             self.logger.info("💡 Performance: MAXIMUM SPEED MODE 🚀")
 
+    def _run_amrfinder_update(self):
+        """Run amrfinder_update to download the latest database"""
+        if not os.path.exists(self.bundled_update):
+            raise FileNotFoundError(f"amrfinder_update not found at {self.bundled_update}. Run database.sh first.")
+        db_parent = os.path.join(self.module_dir, "data", "amrfinder_db")
+        os.makedirs(db_parent, exist_ok=True)
+        self.logger.info("Downloading latest AMR database via amrfinder_update (this may take several minutes)...")
+        try:
+            subprocess.run([self.bundled_update, "--database", db_parent], check=True, capture_output=True, text=True)
+            self.logger.info("AMR database download completed successfully.")
+        except subprocess.CalledProcessError as e:
+            self.logger.error(f"amrfinder_update failed: {e.stderr}")
+            raise RuntimeError("Failed to download AMR database. Please check your internet connection and permissions.")
+
     def _get_latest_database_path(self) -> str:
         """Return path to the most recent AMR database version under data/amrfinder_db/"""
         db_parent = os.path.join(self.module_dir, "data", "amrfinder_db")
@@ -276,27 +238,25 @@ class KleboAMRfinderPlus:
                     version_dirs.append((entry, full_path))
             if not version_dirs:
                 raise RuntimeError(f"Still no version directory found after update in {db_parent}")
-
+        
         # Sort by version string (lexicographically works because of the format)
         version_dirs.sort(key=lambda x: x[0], reverse=True)
         latest_version, latest_path = version_dirs[0]
         self.logger.info(f"Latest AMR database version: {latest_version} at {latest_path}")
         return latest_path
-    
-    def _run_amrfinder_update(self):
-        """Run amrfinder_update to download the latest database"""
-        update_cmd = os.path.join(self.module_dir, "bin", "amrfinder_update")
-        if not os.path.exists(update_cmd):
-            raise FileNotFoundError(f"amrfinder_update not found at {update_cmd}. Run database.sh first.")
-        db_parent = os.path.join(self.module_dir, "data", "amrfinder_db")
-        os.makedirs(db_parent, exist_ok=True)
-        self.logger.info("Downloading latest AMR database via amrfinder_update (this may take several minutes)...")
+
+    def update_database(self) -> bool:
+        """Public method to download the latest AMR database and exit."""
         try:
-            subprocess.run([update_cmd, "--database", db_parent], check=True, capture_output=True, text=True)
-            self.logger.info("AMR database download completed successfully.")
-        except subprocess.CalledProcessError as e:
-            self.logger.error(f"amrfinder_update failed: {e.stderr}")
-            raise RuntimeError("Failed to download AMR database. Please check your internet connection and permissions.")
+            self._run_amrfinder_update()
+            # Re‑detect latest database
+            self.bundled_database = self._get_latest_database_path()
+            self.metadata["database_version"] = os.path.basename(self.bundled_database)
+            self.logger.info(f"New database version: {self.metadata['database_version']}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Database update failed: {e}")
+            return False
     
     def check_amrfinder_installed(self) -> bool:
         try:
@@ -336,9 +296,11 @@ class KleboAMRfinderPlus:
             '--plus',
             '--organism', 'Klebsiella_pneumoniae'
         ]
-        if os.path.exists(self.bundled_database):
+        if self.bundled_database and os.path.exists(self.bundled_database):
             cmd.extend(['--database', self.bundled_database])
             self.logger.info(f"Using bundled database: {self.bundled_database}")
+        else:
+            self.logger.warning("No database found; using AMRfinderPlus default (may fail).")
         
         self.logger.info(f"Running BUNDLED AMRfinderPlus: {genome_name} (using {run_cpus} CPU cores)")
         try:
@@ -382,7 +344,7 @@ class KleboAMRfinderPlus:
                         'start': hit.get('Start', ''),
                         'stop': hit.get('Stop', ''),
                         'strand': hit.get('Strand', ''),
-                        'gene_symbol': str(hit.get('Element symbol', '')),  # force string
+                        'gene_symbol': str(hit.get('Element symbol', '')),
                         'sequence_name': hit.get('Element name', ''),
                         'scope': hit.get('Scope', ''),
                         'element_type': hit.get('Type', ''),
@@ -409,7 +371,7 @@ class KleboAMRfinderPlus:
         return hits
     
     def _create_amrfinder_html_report(self, genome_name: str, hits: List[Dict], output_dir: str):
-        """Interactive per‑genome HTML report (search, export, print)"""
+        """Interactive per‑genome HTML report (search, export, print, quotes)"""
         analysis = self._analyze_kpneumoniae_amr_results(hits)
         
         # JavaScript for interactive features
@@ -512,7 +474,8 @@ class KleboAMRfinderPlus:
             let quotes = {json.dumps(self.science_quotes)};
             let currentQuote = 0;
             function rotateQuote() {{
-                document.getElementById('science-quote').innerHTML = quotes[currentQuote];
+                const quoteDiv = document.getElementById('science-quote');
+                if (quoteDiv) quoteDiv.innerHTML = quotes[currentQuote];
                 currentQuote = (currentQuote + 1) % quotes.length;
             }}
             document.addEventListener('DOMContentLoaded', function() {{
@@ -1370,13 +1333,24 @@ def main():
         epilog="""Examples:
   python klebo_amrfinder.py "*.fasta"
   python klebo_amrfinder.py "*.fna" --output results --cpus 8
+  python klebo_amrfinder.py --update-db          # Update AMR database only
         """
     )
-    parser.add_argument('pattern', help='File pattern for genomes (e.g., "*.fasta")')
+    parser.add_argument('pattern', nargs='?', help='File pattern for genomes (e.g., "*.fasta")')
     parser.add_argument('--cpus', '-c', type=int, default=None, help='CPU cores (auto-detect if not set)')
     parser.add_argument('--output', '-o', default='klebo_amrfinder_results', help='Output directory')
+    parser.add_argument('--update-db', action='store_true', help='Update AMRfinderPlus database and exit')
     args = parser.parse_args()
-    executor = KleboAMRfinderPlus(cpus=args.cpus)
+    
+    # Handle database update separately
+    executor = KleboAMRfinderPlus(cpus=args.cpus)  # will initialise and try to find DB
+    if args.update_db:
+        success = executor.update_database()
+        sys.exit(0 if success else 1)
+    
+    if not args.pattern:
+        parser.error("Please provide a file pattern for genomes (or use --update-db)")
+    
     try:
         results = executor.process_multiple_genomes(args.pattern, args.output)
         executor.logger.info("\n" + "="*50)

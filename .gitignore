@@ -20,10 +20,10 @@ Kp_fasta/
 # Module internal tool folders
 # ===============================
 
-kleboscope/modules/*/data/
-kleboscope/modules/*/db/
-kleboscope/modules/*/perl5/
-kleboscope/modules/*/scripts/
+kleboscope/modules/kleb_mlst_module/data/
+kleboscope/modules/kleb_mlst_module/db/
+kleboscope/modules/kleb_mlst_module/perl5/
+kleboscope/modules/kleb_mlst_module/scripts/
 
 # ===============================
 # Figures / PDFs generated
@@ -38,4 +38,4 @@ kleboscope/modules/*/scripts/
 # ===============================
 results/
 # Ignore bin folder in MLST module
-kleboscope/modules/kleb_mlst_module/bin/
+kleboscope/modules/kleb_amr_module/data/

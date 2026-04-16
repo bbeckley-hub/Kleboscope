@@ -37,6 +37,24 @@ class KleboscopeMLSTAnalyzer:
             {"text": "Research is what I'm doing when I don't know what I'm doing.", "author": "Wernher von Braun"},
             {"text": "Kleboscope turns genomic complexity into actionable insights for AMR surveillance.", "author": "Brown Beckley"}
         ]
+        
+        # Ensure database is available
+        self._ensure_database()
+    
+    def _print_info(self, msg: str):
+        print(f"[INFO] {msg}")
+    
+    def _ensure_database(self):
+        """Download MLST database if missing"""
+        # The database should be in self.database_dir (e.g., 'db/pubmlst')
+        if not self.database_dir.exists() or not any(self.database_dir.glob('*')):
+            self._print_info("MLST database missing, downloading...")
+            module_dir = Path(__file__).parent
+            script_path = module_dir / "database.sh"
+            if not script_path.exists():
+                raise FileNotFoundError(f"database.sh not found at {script_path}")
+            subprocess.run(["bash", str(script_path)], cwd=module_dir, check=True)
+            self._print_info("MLST database downloaded successfully.")
     
     def get_random_quote(self):
         return random.choice(self.science_quotes)
@@ -73,6 +91,9 @@ class KleboscopeMLSTAnalyzer:
 
     def run_mlst_single(self, input_file: Path, output_dir: Path, scheme: str = "klebsiella") -> Dict:
         """Run MLST analysis for a single file"""
+        # Ensure database exists before processing (safety check)
+        self._ensure_database()
+        
         print(f"🔬 Processing: {input_file.name}")
         
         sample_output_dir = output_dir / input_file.stem
@@ -1435,6 +1456,9 @@ Common Virulence Factors:
         print(f"📄 JSON summary created: {summary_file}")
 
     def run_mlst_batch(self, input_path: str, output_dir: Path, scheme: str = "klebsiella") -> Dict[str, Dict]:
+        # Ensure database exists before processing batch
+        self._ensure_database()
+        
         print("🔍 Searching for FASTA files...")
         fasta_files = self.find_fasta_files(input_path)
         
