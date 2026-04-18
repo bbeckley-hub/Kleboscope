@@ -40,3 +40,5 @@ results/
 # Ignore bin folder in MLST module
 kleboscope/modules/kleb_amr_module/data/
 kleboscope/modules/kleb_mlst_module/bin/
+kleboscope/modules/kleb_mlst_module/kleb_mlst_data/
+kleboscope/modules/kleb_mlst_module/kleb_mlst_data-v1.0.0.tar.gz
