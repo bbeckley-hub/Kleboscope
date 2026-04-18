@@ -39,3 +39,4 @@ kleboscope/modules/kleb_mlst_module/scripts/
 results/
 # Ignore bin folder in MLST module
 kleboscope/modules/kleb_amr_module/data/
+kleboscope/modules/kleb_mlst_module/bin/
