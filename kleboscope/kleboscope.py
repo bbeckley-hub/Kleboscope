@@ -4,7 +4,7 @@ Kleboscope Main Orchestrator – Parallel Execution with Scientific Quotes
 Complete K. pneumoniae typing & resistance pipeline
 Author: Brown Beckley <brownbeckley94@gmail.com>
 Version: 1.0.0
-Date: 2026-03-26
+Date: 2026-04-16
 Affiliation: University of Ghana Medical School – Department of Medical Biochemistry
 """
 
@@ -194,6 +194,54 @@ class KleboscopeOrchestrator:
         print()
 
     # --------------------------------------------------------------------------
+    # AMR Database Management (NEW)
+    # --------------------------------------------------------------------------
+    def update_amr_database(self) -> bool:
+        """Run the AMR module's database update and return success."""
+        amr_module_path = self.base_dir / "modules" / "kleb_amr_module"
+        amr_script = amr_module_path / "klebo_amrfinder.py"
+        
+        if not amr_script.exists():
+            self.print_error(f"AMR script not found at: {amr_script}")
+            return False
+        
+        self.print_info("Updating AMRfinderPlus database...")
+        cmd = [sys.executable, str(amr_script), "--update-db"]
+        result = subprocess.run(cmd, capture_output=True, text=True, cwd=amr_module_path)
+        
+        if result.returncode == 0:
+            self.print_success("AMR database updated successfully.")
+            # Also show the new version
+            version_cmd = [sys.executable, str(amr_script), "--db-version"]
+            version_result = subprocess.run(version_cmd, capture_output=True, text=True, cwd=amr_module_path)
+            if version_result.returncode == 0:
+                self.print_info(f"New database version: {version_result.stdout.strip()}")
+            return True
+        else:
+            self.print_error("AMR database update failed.")
+            if result.stderr:
+                print(result.stderr)
+            return False
+
+    def ensure_amr_database(self) -> bool:
+        """Check if AMR database exists; if not, attempt to update."""
+        amr_module_path = self.base_dir / "modules" / "kleb_amr_module"
+        amr_script = amr_module_path / "klebo_amrfinder.py"
+        if not amr_script.exists():
+            self.print_error("AMR script not found, cannot check database.")
+            return False
+        
+        # Run --db-version to see if database is present
+        cmd = [sys.executable, str(amr_script), "--db-version"]
+        result = subprocess.run(cmd, capture_output=True, text=True, cwd=amr_module_path)
+        if result.returncode == 0 and "Unknown" not in result.stdout and "No database" not in result.stdout and "None" not in result.stdout:
+            self.print_success(f"AMR database already present: {result.stdout.strip()}")
+            return True
+        else:
+            self.print_warning("AMR database not found or outdated. Attempting automatic update...")
+            return self.update_amr_database()
+
+    # --------------------------------------------------------------------------
     # File discovery
     # --------------------------------------------------------------------------
     def find_fasta_files(self, input_path: str) -> List[Path]:
@@ -377,6 +425,11 @@ class KleboscopeOrchestrator:
         script = amr_module / "klebo_amrfinder.py"
         if not script.exists():
             return False, f"Error: AMR script not found: {script}"
+        
+        # Ensure database is present before running
+        if not self.ensure_amr_database():
+            return False, "AMR database is missing and could not be updated automatically.\nPlease run: kleboscope --update-amr-db"
+        
         self.copy_fasta_to_module(fasta_files, amr_module)
         pattern = self.get_file_pattern(fasta_files)
         cmd = [sys.executable, str(script), pattern]
@@ -475,7 +528,13 @@ class KleboscopeOrchestrator:
     # Main execution
     # --------------------------------------------------------------------------
     def run_complete_analysis(self, input_path: str, output_dir: str, threads: int = 1,
-                              skip_modules: Dict[str, bool] = None, skip_summary: bool = False):
+                              skip_modules: Dict[str, bool] = None, skip_summary: bool = False,
+                              update_amr_db_only: bool = False):
+        # If only updating AMR database, do that and exit
+        if update_amr_db_only:
+            self.update_amr_database()
+            return
+        
         if skip_modules is None:
             skip_modules = {}
         start_time = datetime.now()
@@ -643,14 +702,17 @@ Version: {__version__}
     def print_colored_help(self):
         self.display_banner()
         print(f"{Color.BRIGHT_YELLOW}USAGE:{Color.RESET}")
-        print(f"  {Color.GREEN}kleboscope{Color.RESET} {Color.CYAN}-i INPUT -o OUTPUT{Color.RESET} [OPTIONS]\n")
-        print(f"{Color.BRIGHT_YELLOW}REQUIRED ARGUMENTS:{Color.RESET}")
+        print(f"  {Color.GREEN}kleboscope{Color.RESET} {Color.CYAN}-i INPUT -o OUTPUT{Color.RESET} [OPTIONS]")
+        print(f"  {Color.GREEN}kleboscope --update-amr-db{Color.RESET}  (Update AMR database only)")
+        print()
+        print(f"{Color.BRIGHT_YELLOW}REQUIRED ARGUMENTS (for analysis):{Color.RESET}")
         print(f"  {Color.GREEN}-i, --input{Color.RESET} INPUT    Input FASTA file(s) – supports glob patterns like \"*.fna\"")
         print(f"  {Color.GREEN}-o, --output{Color.RESET} OUTPUT  Output directory for results\n")
         print(f"{Color.BRIGHT_YELLOW}OPTIONAL ARGUMENTS:{Color.RESET}")
         print(f"  {Color.GREEN}-h, --help{Color.RESET}            Show this help message")
         print(f"  {Color.GREEN}-t, --threads{Color.RESET} THREADS  Number of threads (default: 2)")
-        print(f"  {Color.GREEN}--version{Color.RESET}               Show version and exit\n")
+        print(f"  {Color.GREEN}--version{Color.RESET}               Show version and exit")
+        print(f"  {Color.GREEN}--update-amr-db{Color.RESET}         Update AMRfinderPlus database and exit (first‑time users)\n")
         print(f"{Color.BRIGHT_YELLOW}SKIP OPTIONS:{Color.RESET}")
         print(f"  {Color.GREEN}--skip-qc{Color.RESET}               Skip QC analysis")
         print(f"  {Color.GREEN}--skip-mlst{Color.RESET}             Skip MLST analysis")
@@ -661,7 +723,8 @@ Version: {__version__}
         print(f"{Color.BRIGHT_YELLOW}EXAMPLES:{Color.RESET}")
         print(f"  {Color.GREEN}kleboscope -i \"*.fna\" -o results{Color.RESET}")
         print(f"  {Color.GREEN}kleboscope -i \"*.fasta\" -o results --threads 4{Color.RESET}")
-        print(f"  {Color.GREEN}kleboscope -i genome.fna -o results --skip-qc --skip-abricate{Color.RESET}\n")
+        print(f"  {Color.GREEN}kleboscope -i genome.fna -o results --skip-qc --skip-abricate{Color.RESET}")
+        print(f"  {Color.GREEN}kleboscope --update-amr-db{Color.RESET}   # Mandatory first step for AMR analysis\n")
         print(f"{Color.BRIGHT_YELLOW}Supported FASTA formats:{Color.RESET} {Color.CYAN}.fna, .fasta, .fa, .fn{Color.RESET}")
 
 
@@ -684,20 +747,28 @@ def main():
         add_help=False,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument('-i', '--input', required=True,
-                        help='Input FASTA file(s) – can use glob patterns like "*.fna" or "*.fasta"')
-    parser.add_argument('-o', '--output', required=True,
-                        help='Output directory for all results')
-    parser.add_argument('-t', '--threads', type=int, default=2,
-                        help='Number of threads (default: 2)')
+    parser.add_argument('-i', '--input', help='Input FASTA file(s) – can use glob patterns like "*.fna" or "*.fasta"')
+    parser.add_argument('-o', '--output', help='Output directory for all results')
+    parser.add_argument('-t', '--threads', type=int, default=2, help='Number of threads (default: 2)')
     parser.add_argument('--skip-qc', action='store_true', help='Skip QC analysis')
     parser.add_argument('--skip-mlst', action='store_true', help='Skip MLST analysis')
     parser.add_argument('--skip-kaptive', action='store_true', help='Skip Kaptive analysis')
     parser.add_argument('--skip-abricate', action='store_true', help='Skip ABRicate analysis')
     parser.add_argument('--skip-amr', action='store_true', help='Skip AMR analysis')
     parser.add_argument('--skip-summary', action='store_true', help='Skip ultimate reporter generation')
+    parser.add_argument('--update-amr-db', action='store_true', help='Update AMRfinderPlus database and exit (mandatory before first AMR run)')
 
     args = parser.parse_args()
+
+    # If only updating the AMR database, no need for input/output
+    if args.update_amr_db:
+        orchestrator = KleboscopeOrchestrator()
+        orchestrator.run_complete_analysis("", "", update_amr_db_only=True)
+        sys.exit(0)
+
+    # Otherwise, input and output are required
+    if not args.input or not args.output:
+        parser.error("When not using --update-amr-db, both -i/--input and -o/--output are required.")
 
     skip_modules = {
         'qc': args.skip_qc,

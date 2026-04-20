@@ -120,7 +120,7 @@ class KleboAMRfinderPlus:
 """
         self.metadata = {
             "tool_name": "Kleboscope AMRfinderPlus",
-            "version": "1.1.0",
+            "version": "1.0.0",
             "authors": ["Brown Beckley"],
             "email": "brownbeckley94@gmail.com",
             "github": "https://github.com/bbeckley-hub",

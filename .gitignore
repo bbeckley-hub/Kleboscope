@@ -21,9 +21,6 @@ Kp_fasta/
 # ===============================
 
 kleboscope/modules/kleb_mlst_module/data/
-kleboscope/modules/kleb_mlst_module/db/
-kleboscope/modules/kleb_mlst_module/perl5/
-kleboscope/modules/kleb_mlst_module/scripts/
 
 # ===============================
 # Figures / PDFs generated
@@ -39,6 +36,5 @@ kleboscope/modules/kleb_mlst_module/scripts/
 results/
 # Ignore bin folder in MLST module
 kleboscope/modules/kleb_amr_module/data/
-kleboscope/modules/kleb_mlst_module/bin/
 kleboscope/modules/kleb_mlst_module/kleb_mlst_data/
 kleboscope/modules/kleb_mlst_module/kleb_mlst_data-v1.0.0.tar.gz
