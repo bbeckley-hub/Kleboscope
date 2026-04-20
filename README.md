@@ -15,14 +15,14 @@
 ```
 ---
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue)](https://github.com/bbeckley-hub/Kleboscope)
+[![Version](https://img.shields.io/badge/version-1.0.1-blue)](https://github.com/bbeckley-hub/Kleboscope)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![GitHub Issues](https://img.shields.io/github/issues/bbeckley-hub/kleboscope)](https://github.com/bbeckley-hub/Kleboscope/issues)
 [![Docker Pulls](https://img.shields.io/docker/pulls/bbeckleyhub/kleboscope)](https://hub.docker.com/r/bbeckleyhub/kleboscope)
-[![Anaconda-Server Badge](https://anaconda.org/bbeckley-hub/kleboscope/badges/latest_release_relative_date.svg)](https://anaconda.org/bbeckley-hub/kleboscope)
+[![Anaconda-Server Badge](https://anaconda.org/bioconda/kleboscope/badges/latest_release_date.svg)](https://anaconda.org/bbeckley-hub/kleboscope)
 [![Anaconda-Server Badge](https://anaconda.org/bbeckley-hub/kleboscope/badges/platforms.svg)](https://anaconda.org/bbeckley-hub/kleboscope)
-[![Anaconda-Server Badge](https://anaconda.org/bbeckley-hub/kleboscope/badges/latest_release_date.svg)](https://anaconda.org/bbeckley-hub/kleboscope)
+[![Anaconda-Server Badge](https://anaconda.org/bioconda/kleboscope/badges/version.svg)](https://anaconda.org/bbeckley-hub/kleboscope)
 
 
 ![Latest Release Date](https://anaconda.org/bbeckley-hub/kleboscope/badges/latest_release_date.svg)
