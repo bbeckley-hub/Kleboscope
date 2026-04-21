@@ -4,7 +4,7 @@ Kleboscope Main Orchestrator – Parallel Execution with Scientific Quotes
 Complete K. pneumoniae typing & resistance pipeline
 Author: Brown Beckley <brownbeckley94@gmail.com>
 Version: 1.0.1
-Date: 2026-04-16
+Date: 2026-04-21
 Affiliation: University of Ghana Medical School – Department of Medical Biochemistry
 """
 
@@ -194,10 +194,10 @@ class KleboscopeOrchestrator:
         print()
 
     # --------------------------------------------------------------------------
-    # AMR Database Management (NEW)
+    # AMR Database Update (manual only, no automatic check)
     # --------------------------------------------------------------------------
     def update_amr_database(self) -> bool:
-        """Run the AMR module's database update and return success."""
+        """Manually update the AMR database (called by --update-amr-db flag)."""
         amr_module_path = self.base_dir / "modules" / "kleb_amr_module"
         amr_script = amr_module_path / "klebo_amrfinder.py"
         
@@ -222,24 +222,6 @@ class KleboscopeOrchestrator:
             if result.stderr:
                 print(result.stderr)
             return False
-
-    def ensure_amr_database(self) -> bool:
-        """Check if AMR database exists; if not, attempt to update."""
-        amr_module_path = self.base_dir / "modules" / "kleb_amr_module"
-        amr_script = amr_module_path / "klebo_amrfinder.py"
-        if not amr_script.exists():
-            self.print_error("AMR script not found, cannot check database.")
-            return False
-        
-        # Run --db-version to see if database is present
-        cmd = [sys.executable, str(amr_script), "--db-version"]
-        result = subprocess.run(cmd, capture_output=True, text=True, cwd=amr_module_path)
-        if result.returncode == 0 and "Unknown" not in result.stdout and "No database" not in result.stdout and "None" not in result.stdout:
-            self.print_success(f"AMR database already present: {result.stdout.strip()}")
-            return True
-        else:
-            self.print_warning("AMR database not found or outdated. Attempting automatic update...")
-            return self.update_amr_database()
 
     # --------------------------------------------------------------------------
     # File discovery
@@ -421,15 +403,13 @@ class KleboscopeOrchestrator:
         return result.returncode == 0, short
 
     def run_amr(self, fasta_files: List[Path], output_dir: Path, threads: int) -> Tuple[bool, str]:
+        """Run AMR analysis WITHOUT any database check (database is pre‑packaged)."""
         amr_module = self.base_dir / "modules" / "kleb_amr_module"
         script = amr_module / "klebo_amrfinder.py"
         if not script.exists():
             return False, f"Error: AMR script not found: {script}"
         
-        # Ensure database is present before running
-        if not self.ensure_amr_database():
-            return False, "AMR database is missing and could not be updated automatically.\nPlease run: kleboscope --update-amr-db"
-        
+        # No database check – assume the pre‑packaged database is present
         self.copy_fasta_to_module(fasta_files, amr_module)
         pattern = self.get_file_pattern(fasta_files)
         cmd = [sys.executable, str(script), pattern]
@@ -442,6 +422,7 @@ class KleboscopeOrchestrator:
                 short += f"stderr (first 5 lines):\n{chr(10).join(result.stderr.strip().split(chr(10))[:5])}\n"
         else:
             short += "✓ AMR analysis completed!\n"
+        
         amr_source = amr_module / "klebo_amrfinder_results"
         amr_target = output_dir / self.output_dirs['amr']
         if amr_source.exists():
@@ -712,7 +693,7 @@ Version: {__version__}
         print(f"  {Color.GREEN}-h, --help{Color.RESET}            Show this help message")
         print(f"  {Color.GREEN}-t, --threads{Color.RESET} THREADS  Number of threads (default: 2)")
         print(f"  {Color.GREEN}--version{Color.RESET}               Show version and exit")
-        print(f"  {Color.GREEN}--update-amr-db{Color.RESET}         Update AMRfinderPlus database and exit (first‑time users)\n")
+        print(f"  {Color.GREEN}--update-amr-db{Color.RESET}         Update AMRfinderPlus database and exit\n")
         print(f"{Color.BRIGHT_YELLOW}SKIP OPTIONS:{Color.RESET}")
         print(f"  {Color.GREEN}--skip-qc{Color.RESET}               Skip QC analysis")
         print(f"  {Color.GREEN}--skip-mlst{Color.RESET}             Skip MLST analysis")
@@ -724,8 +705,10 @@ Version: {__version__}
         print(f"  {Color.GREEN}kleboscope -i \"*.fna\" -o results{Color.RESET}")
         print(f"  {Color.GREEN}kleboscope -i \"*.fasta\" -o results --threads 4{Color.RESET}")
         print(f"  {Color.GREEN}kleboscope -i genome.fna -o results --skip-qc --skip-abricate{Color.RESET}")
-        print(f"  {Color.GREEN}kleboscope --update-amr-db{Color.RESET}   # Mandatory first step for AMR analysis\n")
+        print(f"  {Color.GREEN}kleboscope --update-amr-db{Color.RESET}   # Manually update AMR database\n")
         print(f"{Color.BRIGHT_YELLOW}Supported FASTA formats:{Color.RESET} {Color.CYAN}.fna, .fasta, .fa, .fn{Color.RESET}")
+        print(f"{Color.BRIGHT_YELLOW}Note:{Color.RESET} Run kleboscope --update-amr-db (Mandatory).")
+        print(f"{Color.BRIGHT_YELLOW}RECOMMENDED:{Color.RESET} run abricate --setupdb")
 
 
 # =============================================================================
@@ -756,7 +739,7 @@ def main():
     parser.add_argument('--skip-abricate', action='store_true', help='Skip ABRicate analysis')
     parser.add_argument('--skip-amr', action='store_true', help='Skip AMR analysis')
     parser.add_argument('--skip-summary', action='store_true', help='Skip ultimate reporter generation')
-    parser.add_argument('--update-amr-db', action='store_true', help='Update AMRfinderPlus database and exit (mandatory before first AMR run)')
+    parser.add_argument('--update-amr-db', action='store_true', help='Manually update AMRfinderPlus database and exit')
 
     args = parser.parse_args()
 

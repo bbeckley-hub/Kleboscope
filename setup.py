@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="kleboscope",
-    version="1.0.0",
+    version="1.0.1",
     author="Brown Beckley",
     author_email="brownbeckley94@gmail.com",
     description="Advanced Klebsiella pneumoniae Genomic Analysis Platform",
