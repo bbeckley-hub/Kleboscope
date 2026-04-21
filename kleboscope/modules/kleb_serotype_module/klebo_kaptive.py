@@ -40,7 +40,7 @@ class KleboscopeKaptive:
 
         self.metadata = {
             "tool_name": "Kleboscope Kaptive K/O Analysis",
-            "version": "1.0.0",
+            "version": "1.0.1",
             "authors": ["Brown Beckley"],
             "email": "brownbeckley94@gmail.com",
             "github": "https://github.com/bbeckley-hub",
@@ -603,7 +603,7 @@ class KleboscopeKaptive:
 </body>
 </html>
 """
-        # Replace the two large placeholders (the table_rows and gene_details_html) that are inside the f-string
+        
         # but because they contain nested f‑string braces, we need to insert them after the main f-string.
         html = html.replace("{table_rows}", table_rows)
         html = html.replace("{gene_details_html}", gene_details_html)

@@ -3,7 +3,7 @@
 Kleboscope Main Orchestrator – Parallel Execution with Scientific Quotes
 Complete K. pneumoniae typing & resistance pipeline
 Author: Brown Beckley <brownbeckley94@gmail.com>
-Version: 1.0.0
+Version: 1.0.1
 Date: 2026-04-16
 Affiliation: University of Ghana Medical School – Department of Medical Biochemistry
 """
@@ -20,7 +20,7 @@ from datetime import datetime
 from typing import Dict, List, Tuple, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 # =============================================================================
 # Color class

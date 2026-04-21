@@ -4,7 +4,7 @@ Kleboscope AMRfinderPlus - K. pneumoniae Antimicrobial Resistance
 Comprehensive AMR analysis with interactive per‑genome reports and clean batch summary
 Author: Brown Beckley
 Affiliation: University of Ghana Medical School
-Version: 1.0.0
+Version: 1.0.1
 Uses bundled AMRfinderPlus with dynamic latest database version.
 """
 
@@ -120,7 +120,7 @@ class KleboAMRfinderPlus:
 """
         self.metadata = {
             "tool_name": "Kleboscope AMRfinderPlus",
-            "version": "1.0.0",
+            "version": "1.0.1",
             "authors": ["Brown Beckley"],
             "email": "brownbeckley94@gmail.com",
             "github": "https://github.com/bbeckley-hub",
