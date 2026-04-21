@@ -5,7 +5,7 @@ Comprehensive ABRicate analysis for Klebsiella pneumoniae with HTML, TSV, and JS
 Author: Brown Beckley <brownbeckley94@gmail.com>
 Affiliation: University of Ghana Medical School - Department of Medical Biochemistry
 Date: 2026-05-24
-Version: 1.0.0 (Klebsiella-optimized, complete)
+Version: 1.0.1 (Klebsiella-optimized, complete)
 """
 
 import subprocess
@@ -167,7 +167,7 @@ class AbricateExecutor:
         
         self.metadata = {
             "tool_name": "Kleboscope ABRicate",
-            "version": "1.0.0",
+            "version": "1.0.1",
             "authors": ["Brown Beckley"],
             "email": "brownbeckley94@gmail.com",
             "github": "https://github.com/bbeckley-hub",

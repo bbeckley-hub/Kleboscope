@@ -25,11 +25,6 @@ SHELL ["conda", "run", "-n", "kleboscope", "/bin/bash", "-c"]
 # Run abricate database setup (one-time)
 RUN abricate --setupdb
 
-FROM continuumio/miniconda3:latest
-
-# Run abricate database setup (one-time)
-RUN abricate --setupdb
-
 # Run AMR database setup (downloads latest AMRfinderPlus database)
 RUN cd /opt/kleboscope/kleboscope/modules/kleb_amr_module && \
      python klebo_amrfinder.py --update-db   
