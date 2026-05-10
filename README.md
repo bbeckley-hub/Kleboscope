@@ -1,18 +1,13 @@
-# 🧬 Kleboscope
+<p align="center">
+  <img src="https://raw.githubusercontent.com/bbeckley-hub/kleboscope/main/kleboscope.png" alt="Kleboscope Banner" width="100%">
+</p>
+
+<div align="center">
+
 
 ### **A gene‑centric, species‑optimized computational pipeline for comprehensive *Klebsiella pneumoniae* genomic surveillance**
 
 #### **Complete K. pneumoniae typing, resistance, virulence, plasmid, and environmental marker analysis — from FASTA to actionable insights**
----
-
-```text
-██╗  ██╗██╗     ███████╗██████╗  ██████╗ ███████╗ ██████╗ ██████╗  ██████╗ ███████╗
-██║ ██╔╝██║     ██╔════╝██╔══██╗██╔═══██╗██╔════╝██╔════╝██╔═══██╗ ██╔══██╗██╔════╝
-█████╔╝ ██║     █████╗  ██████╔╝██║   ██║███████╗██║     ██║   ██║ ██████╔╝█████╗  
-██╔═██╗ ██║     ██╔══╝  ██╔══██╗██║   ██║╚════██║██║     ██║   ██║ ██╔═══╝ ██╔══╝  
-██║  ██╗███████╗███████╗██████╔╝╚██████╔╝███████║╚██████╗╚██████╔╝ ██║     ███████╗
-╚═╝  ╚═╝╚══════╝╚══════╝╚═════╝  ╚═════╝ ╚══════╝ ╚═════╝ ╚═════╝  ╚═╝     ╚══════╝
-```
 ---
 
 [![Version](https://img.shields.io/badge/version-1.0.1-blue)](https://github.com/bbeckley-hub/Kleboscope)
@@ -72,7 +67,7 @@
 ![Top Langs](https://github-readme-stats.vercel.app/api/top-langs/?username=bbeckley-hub&layout=compact&theme=radical)
 [![GitHub Streak](https://streak-stats.demolab.com?user=bbeckley-hub&theme=radical&date_format=j%20M%5B%20Y%5D)](https://git.io/streak-stats)
 
----
+</div>
 
 ## 📋 **Table of Contents**
 
