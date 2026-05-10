@@ -27,13 +27,12 @@ jobs:
         auto-update-conda: true
         python-version: ${{ matrix.python-version }}
     
-    - name: Install Kleboscope from bbeckley-hub channel
+    - name: Install Kleboscope from bioconda channel
       shell: bash -l {0}
       run: |
         conda config --add channels conda-forge
         conda config --add channels bioconda
-        conda config --add channels bbeckley-hub  
-        conda create -n kleboscope -c bbeckley-hub -c conda-forge -c bioconda kleboscope python=${{ matrix.python-version }} -y
+        conda create -n kleboscope -c conda-forge -c bioconda kleboscope python=${{ matrix.python-version }} -y
         conda activate kleboscope 
     
     - name: Test kleboscope help
