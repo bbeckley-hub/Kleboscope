@@ -21,7 +21,7 @@
 [![GitHub Issues](https://img.shields.io/github/issues/bbeckley-hub/kleboscope)](https://github.com/bbeckley-hub/Kleboscope/issues)
 [![Docker Pulls](https://img.shields.io/docker/pulls/bbeckleyhub/kleboscope)](https://hub.docker.com/r/bbeckleyhub/kleboscope)
 [![Anaconda-Server Badge](https://anaconda.org/bioconda/kleboscope/badges/latest_release_date.svg)](https://anaconda.org/bbeckley-hub/kleboscope)
-[![Anaconda-Server Badge](https://anaconda.org/bbeckley-hub/kleboscope/badges/platforms.svg)](https://anaconda.org/bbeckley-hub/kleboscope)
+[![Conda Downloads](https://anaconda.org/bioconda/kleboscope/badges/downloads.svg)](https://anaconda.org/bbeckley-hub/kleboscope)
 
 
 
