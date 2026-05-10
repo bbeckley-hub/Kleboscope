@@ -180,8 +180,17 @@ Kleboscope delivers:
 
 **Conda (recommended):**
 ```bash
-conda create -n kleboscope -c conda-forge -c bioconda -c bbeckley-hub kleboscope
+conda create -n kleboscope -c conda-forge -c bioconda kleboscope
 conda activate kleboscope
+
+```
+**Conda Users only ( highly recommended):**
+```bash
+1. Run abricate --setupdb
+2. Run kleboscope --update-amr-db
+NB: Ignore this generic nessage, working on the fix in the next release! Very harmless....
+"⚠️ AMR database not found or outdated. Attempting automatic update..."
+
 ```
 
 **From source (for developers):**
