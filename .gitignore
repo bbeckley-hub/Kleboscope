@@ -17,20 +17,6 @@ dist/
 Kp_fasta/
 
 # ===============================
-# Module internal tool folders
-# ===============================
-
-kleboscope/modules/kleb_mlst_module/data/
-
-# ===============================
-# Figures / PDFs generated
-# ===============================
-*.png
-*.pdf
-*.svg
-*.tiff
-
-# ===============================
 # Results folders
 # ===============================
 results/

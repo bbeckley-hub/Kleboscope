@@ -20,7 +20,7 @@ Critical Genes Tracked:
 💧 Siderophores
 🧪 Toxins""",
     long_description_content_type="text/markdown",
-    url="https://github.com/bbeckley-hub/Kleboscope",
+    url="https://github.com/bbeckley-hub/pseudoscope",
     packages=['kleboscope'],
     include_package_data=True,
     python_requires=">=3.9",
@@ -39,7 +39,7 @@ Critical Genes Tracked:
     ],
     entry_points={
         "console_scripts": [
-            "kleboscope=kleboscope.kleboscope:main",
+            "pseudoscope=pseudoscope.pseudoscope:main",
         ],
     },
     classifiers=[
