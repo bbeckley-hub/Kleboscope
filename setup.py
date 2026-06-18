@@ -1,37 +1,25 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name="kleboscope",
-    version="1.0.1",
+    version="1.1.0",
     author="Brown Beckley",
     author_email="brownbeckley94@gmail.com",
     description="Advanced Klebsiella pneumoniae Genomic Analysis Platform",
-    long_description="""Complete K. pneumoniae genomic analysis pipeline: MLST | K/O Locus | AMR | Plasmid | Virulence | Quality Control | Summary Reports
-
-Critical Genes Tracked:
-🔴 Carbapenemases (KPC, NDM, OXA-48)
-🟠 Colistin (mcr)
-🟡 Tigecycline (tetX)
-🟢 ICEKp Markers (ybt, clb, iro, rmp)
-🔵 Virulence Plasmid Markers (iro, iuc, rmp, rmpA2)
-🟣 Biocides & Heavy Metals (qac, sil, mer, ars, pco)
-⚪ Adhesins (fim, mrk, ecp)
-🔶 Secretion Systems (tss)
-💧 Siderophores
-🧪 Toxins""",
+    long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
-    url="https://github.com/bbeckley-hub/pseudoscope",
-    packages=['kleboscope'],
+    url="https://github.com/bbeckley-hub/kleboscope",
+    packages=find_packages(),
     include_package_data=True,
     python_requires=">=3.9",
     install_requires=[
         "pandas>=1.5.0",
-        "biopython>=1.85",  
+        "biopython>=1.85",
         "psutil>=5.9.0",
         "requests>=2.28.0",
         "tqdm>=4.64.0",
         "click>=8.0.0",
-        "kaptive>=3.1.0", 
+        "kaptive>=3.1.0",
         "beautifulsoup4>=4.11.0",
         "lxml>=4.9.0",
         "matplotlib>=3.5.0",
@@ -39,7 +27,7 @@ Critical Genes Tracked:
     ],
     entry_points={
         "console_scripts": [
-            "pseudoscope=pseudoscope.pseudoscope:main",
+            "kleboscope = kleboscope.kleboscope:main",
         ],
     },
     classifiers=[

@@ -40,7 +40,7 @@ class KleboscopeKaptive:
 
         self.metadata = {
             "tool_name": "Kleboscope Kaptive K/O Analysis",
-            "version": "1.0.1",
+            "version": "1.1.0",
             "authors": ["Brown Beckley"],
             "email": "brownbeckley94@gmail.com",
             "github": "https://github.com/bbeckley-hub",
