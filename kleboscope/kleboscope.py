@@ -4,7 +4,7 @@ Kleboscope Main Orchestrator – Parallel Execution with Scientific Quotes
 Complete K. pneumoniae typing & resistance pipeline
 Author: Brown Beckley <brownbeckley94@gmail.com>
 Version: 1.1.0
-Date: 2026-06-18
+Date: 2026-06-19
 Affiliation: University of Ghana Medical School – Department of Medical Biochemistry
 """
 
@@ -316,23 +316,23 @@ class KleboscopeOrchestrator:
 
     def run_qc(self, fasta_files: List[Path], output_dir: Path, threads: int) -> Tuple[bool, str]:
         pattern = self.get_file_pattern(fasta_files)
-        cmd = f"python klebo_fasta_qc.py {pattern}"
+        cmd = f"python klebo_fasta_qc.py '{pattern}'"
         return self.run_module_in_temp("kleb_qc_module", fasta_files, cmd, self.output_dirs['qc'])
 
     def run_mlst(self, fasta_files: List[Path], output_dir: Path, threads: int) -> Tuple[bool, str]:
         pattern = self.get_file_pattern(fasta_files)
-        cmd = f"python klebo_mlst.py -i {pattern} -o {self.output_dirs['mlst']} -db db -sc . --batch"
+        cmd = f"python klebo_mlst.py -i '{pattern}' -o {self.output_dirs['mlst']} -db db -sc . --batch"
         return self.run_module_in_temp("kleb_mlst_module", fasta_files, cmd, self.output_dirs['mlst'])
 
     def run_kaptive(self, fasta_files: List[Path], output_dir: Path, threads: int) -> Tuple[bool, str]:
         pattern = self.get_file_pattern(fasta_files)
-        cmd = f"python klebo_kaptive.py -i {pattern} -o {self.output_dirs['kaptive']}"
+        cmd = f"python klebo_kaptive.py -i '{pattern}' -o {self.output_dirs['kaptive']}"
         return self.run_module_in_temp("kleb_serotype_module", fasta_files, cmd, self.output_dirs['kaptive'])
 
     def run_abricate(self, fasta_files: List[Path], output_dir: Path, threads: int,
                      min_id: Optional[float] = None, min_cov: Optional[float] = None) -> Tuple[bool, str]:
         pattern = self.get_file_pattern(fasta_files)
-        cmd = f"python kleb_abricate_module.py {pattern}"
+        cmd = f"python kleb_abricate_module.py '{pattern}'"
         if min_id is not None:
             cmd += f" --min-id {min_id}"
         if min_cov is not None:
@@ -343,7 +343,7 @@ class KleboscopeOrchestrator:
                 min_identity: Optional[float] = None, min_coverage: Optional[float] = None,
                 skip_mutations: bool = False) -> Tuple[bool, str]:
         pattern = self.get_file_pattern(fasta_files)
-        cmd = f"python klebo_amrfinder.py {pattern}"
+        cmd = f"python klebo_amrfinder.py '{pattern}'"
         if min_identity is not None:
             cmd += f" --min-identity {min_identity}"
         if min_coverage is not None:
