@@ -1682,15 +1682,57 @@ class KleboHTMLGenerator:
         mutations = mutation_data.get('mutations', [])
         if not mutations:
             return "<div class='alert-box alert-warning'>No mutation data found. Please ensure mutation_summary.html is present.</div>"
+        
         total_samples = len(data.get('samples', {}))
+        
+        # Count mutations by class
+        class_counts = Counter()
+        for m in mutations:
+            class_counts[m['class']] += 1
+        
+        # Build summary badges
+        summary_badges = "".join([f"<span class='badge badge-info' style='margin:2px;'>{cls}: {cnt}</span>" for cls, cnt in class_counts.items() if cls and cls != "NA"])
+        
+        # Mutation descriptions for tooltips
+        mutation_descriptions = {
+            'gyrA': "DNA gyrase subunit A – QRDR mutations confer fluoroquinolone resistance.",
+            'parC': "Topoisomerase IV subunit A – QRDR mutations confer fluoroquinolone resistance.",
+            'rpoB': "RNA polymerase beta subunit – mutations cause rifampin resistance.",
+            'mgrB': "Negative regulator of PhoPQ – mutations lead to colistin resistance.",
+            'pmr': "Two‑component system (PmrAB) – mutations upregulate lipid A modification, conferring colistin resistance.",
+            'lpx': "Lipid A biosynthesis – mutations can cause colistin resistance (loss of LPS).",
+            'envZ': "Sensor histidine kinase EnvZ – mutations affect OmpF/OmpC expression, influencing permeability.",
+            'omp': "Outer membrane porins – mutations reduce drug uptake.",
+            'phoP': "Response regulator PhoP – part of PhoPQ, affects colistin resistance.",
+            'phoQ': "Sensor kinase PhoQ – part of PhoPQ, affects colistin resistance.",
+            'crr': "PTS system glucose‑specific transporter – may affect resistance.",
+            'acr': "Multidrug efflux pump components – overexpression causes resistance.",
+            'mar': "Multiple antibiotic resistance regulator – upregulates efflux pumps.",
+            'sox': "Superoxide response regulator – upregulates efflux pumps.",
+            'ram': "Regulator of AcrAB – upregulates efflux pumps.",
+        }
+        
         rows = []
         for m in mutations:
+            gene = m['gene']
+            # Build tooltip if available
+            tooltip = ""
+            gene_lower = gene.lower()
+            for key, desc in mutation_descriptions.items():
+                if key in gene_lower:
+                    tooltip = f' title="{desc}"'
+                    break
             genome_tags = ''.join([f'<span class="genome-tag">{g}</span>' for g in m['genomes']])
-            pct = m['count'] / total_samples * 100 if total_samples else 0
-            freq = f"{m['count']} ({pct:.1f}%)"
+            # Recalculate count from genomes to be safe
+            count = len(m['genomes'])
+            pct = (count / total_samples * 100) if total_samples else 0
+            # Cap at 100% to avoid display errors
+            if pct > 100:
+                pct = 100.0
+            freq = f"{count} ({pct:.1f}%)"
             rows.append(f"""
             <tr>
-                <td><strong>{m['gene']}</strong></td>
+                <td><strong><span{tooltip}>{gene}</span></strong></td>
                 <td>{m['mutation']}</td>
                 <td>{m['class']}</td>
                 <td>{m['subclass']}</td>
@@ -1698,9 +1740,22 @@ class KleboHTMLGenerator:
                 <td><div class="genome-list">{genome_tags}</div></td>
             </tr>
             """)
+        
+        # Build class filter buttons
+        class_buttons = ""
+        for cls in sorted(class_counts.keys()):
+            if cls and cls != "NA":
+                class_buttons += f'<button class="action-btn btn-info" onclick="document.getElementById(\'search-mutations\').value=\'{cls}\'; searchTable(\'mutations-table\',\'search-mutations\')">{cls}</button> '
+        
         return f"""
         <div class="section-header mutations-header"><h2><i class="fas fa-dna"></i> Point Mutations (AMRfinderPlus)</h2><button class="print-section-btn" onclick="printSection('mutations-tab')"><i class="fas fa-print"></i> Print</button></div>
-        <div class="alert-box alert-info"><i class="fas fa-info-circle"></i><div><strong>Point mutations</strong> can confer resistance even without acquired genes. Common targets: <em>gyrA</em> (quinolones), <em>parC</em> (quinolones), <em>rpoB</em> (rifampin), <em>mgrB</em> (colistin). Use grouping to see which clones carry specific mutations.</div></div>
+        <div class="alert-box alert-info"><i class="fas fa-info-circle"></i><div><strong>Point mutations</strong> can confer resistance even without acquired genes. Common targets: <em>gyrA</em> (quinolones), <em>parC</em> (quinolones), <em>rpoB</em> (rifampin), <em>mgrB</em> (colistin). Hover over gene names for descriptions. Use grouping to see which clones carry specific mutations.</div></div>
+        
+        <div style="margin: 15px 0; background: #f8f9fa; padding: 15px; border-radius: 8px;">
+            <strong><i class="fas fa-chart-bar"></i> Summary by Mutation Class:</strong><br>
+            {summary_badges if summary_badges else 'No class data available.'}
+        </div>
+        
         <div class="grouping-controls">
             <strong><i class="fas fa-layer-group"></i> Group genomes by:</strong>
             <button class="group-btn" data-group="ST" onclick="groupGenomesByTyping('mutations-table','ST')">ST</button>
@@ -1711,19 +1766,40 @@ class KleboHTMLGenerator:
             <button class="group-btn" data-group="ST-K:O" onclick="groupGenomesByTyping('mutations-table','ST-K:O')">ST‑K:O</button>
             <button class="group-btn" onclick="resetGenomeList('mutations-table')">Reset</button>
         </div>
+        
         <input type="text" class="search-box" id="search-mutations" onkeyup="searchTable('mutations-table','search-mutations')" placeholder="🔍 Search gene or mutation...">
         <input type="text" class="search-box" id="highlight-mutations" onkeyup="highlightGenome('mutations-table','highlight-mutations')" placeholder="🔍 Highlight genomes...">
+        
         <div class="action-buttons">
             <button class="action-btn btn-primary" onclick="exportTableToCSV('mutations-table','mutations.csv')"><i class="fas fa-download"></i> Export</button>
+            {class_buttons}
             <button class="action-btn btn-danger" onclick="document.getElementById('search-mutations').value='gyrA'; searchTable('mutations-table','search-mutations')">gyrA</button>
             <button class="action-btn btn-danger" onclick="document.getElementById('search-mutations').value='parC'; searchTable('mutations-table','search-mutations')">parC</button>
             <button class="action-btn btn-warning" onclick="document.getElementById('search-mutations').value='rpoB'; searchTable('mutations-table','search-mutations')">rpoB</button>
             <button class="action-btn btn-info" onclick="document.getElementById('search-mutations').value='mgrB'; searchTable('mutations-table','search-mutations')">mgrB</button>
             <button class="action-btn btn-info" onclick="document.getElementById('search-mutations').value='pmr'; searchTable('mutations-table','search-mutations')">pmr</button>
             <button class="action-btn btn-info" onclick="document.getElementById('search-mutations').value='lpx'; searchTable('mutations-table','search-mutations')">lpx</button>
+            <button class="action-btn btn-info" onclick="document.getElementById('search-mutations').value='envZ'; searchTable('mutations-table','search-mutations')">envZ</button>
             <button class="action-btn btn-light" onclick="document.getElementById('search-mutations').value=''; searchTable('mutations-table','search-mutations')">Clear</button>
         </div>
-        <div class="master-scrollable-container"><table id="mutations-table" class="data-table"><thead><tr><th data-sort="string">Gene</th><th data-sort="string">Mutation</th><th data-sort="string">Class</th><th data-sort="string">Subclass</th><th data-sort="string">Frequency</th><th data-sort="string">Genomes</th></tr></thead><tbody>{"".join(rows)}</tbody></table></div>
+        
+        <div class="master-scrollable-container">
+            <table id="mutations-table" class="data-table">
+                <thead>
+                    <tr>
+                        <th data-sort="string">Gene</th>
+                        <th data-sort="string">Mutation</th>
+                        <th data-sort="string">Class</th>
+                        <th data-sort="string">Subclass</th>
+                        <th data-sort="string">Frequency</th>
+                        <th data-sort="string">Genomes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {"".join(rows)}
+                </tbody>
+            </table>
+        </div>
         """
 
     def _generate_patterns_section(self, data: Dict) -> str:
