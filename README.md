@@ -3,22 +3,22 @@
 </p>
 
 <div align="center">
-
+  
+# 🧬 Kleboscope
 
 ### **A gene‑centric, species‑optimized computational pipeline for comprehensive *Klebsiella pneumoniae* genomic surveillance**
 
 #### **Complete K. pneumoniae typing, resistance, virulence, plasmid, and environmental marker analysis — from FASTA to actionable insights**
+
 ---
 
-[![Version](https://img.shields.io/badge/version-1.0.1-blue)](https://github.com/bbeckley-hub/Kleboscope)
+[![Version](https://img.shields.io/badge/version-1.1.0-blue)](https://github.com/bbeckley-hub/Kleboscope)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![GitHub Issues](https://img.shields.io/github/issues/bbeckley-hub/kleboscope)](https://github.com/bbeckley-hub/Kleboscope/issues)
 [![Docker Pulls](https://img.shields.io/docker/pulls/bbeckleyhub/kleboscope)](https://hub.docker.com/r/bbeckleyhub/kleboscope)
 [![Anaconda-Server Badge](https://anaconda.org/bioconda/kleboscope/badges/latest_release_date.svg)](https://anaconda.org/bbeckley-hub/kleboscope)
 [![Conda Downloads](https://anaconda.org/bioconda/kleboscope/badges/downloads.svg)](https://anaconda.org/bbeckley-hub/kleboscope)
-
-
 
 ![Latest Release Date](https://anaconda.org/bbeckley-hub/kleboscope/badges/latest_release_date.svg)
 [![Docker Image Size](https://img.shields.io/docker/image-size/bbeckleyhub/staphscope/latest)](https://hub.docker.com/r/bbeckleyhub/kleboscope)
@@ -27,22 +27,17 @@
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Profile-0A66C2?style=flat&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/brown-beckley-190315319)
 [![Stage](https://img.shields.io/badge/status-active-brightgreen)](#)
 
-
-
-
 [![Powered by 🧠](https://img.shields.io/badge/powered%20by-science%20🔬-purple)](https://github.com/bbeckley-hub/Kleboscope)
 [![Coffee](https://img.shields.io/badge/built%20with-%E2%98%95%20coffee-orange)](https://github.com/bbeckley-hub/Kleboscope)
 [![Made with ❤️](https://img.shields.io/badge/made%20with-%E2%9D%A4%EF%B8%8F-red)](https://github.com/bbeckley-hub/Kleboscope)
 [![Open Source Love](https://badges.frapsoft.com/os/v1/open-source.svg?v=103)](https://github.com/ellerbrock/open-source-badges/)
 [![Made for Research](https://img.shields.io/badge/made%20for-Research-0066cc.svg)](https://github.com/bbeckley-hub)
 
-
 [![Documentation](https://img.shields.io/badge/docs-mkdocs-526CFE?logo=materialformkdocs)](https://bbeckley-hub.github.io/Kleboscope)
 [![RST Badge](https://img.shields.io/badge/documentation-RST-4CAF50.svg)](https://www.sphinx-doc.org/)
 [![Last Commit](https://img.shields.io/github/last-commit/bbeckley-hub/staphscope-typing-tool)](https://github.com/bbeckley-hub/Kleboscope/commits)
 [![Contributors](https://img.shields.io/github/contributors/bbeckley-hub/staphscope-typing-tool)](https://github.com/bbeckley-hub/Kleboscope/graphs/contributors)
 [![Security: bandit](https://img.shields.io/badge/security-bandit-yellow.svg)](https://github.com/PyCQA/bandit)
-
 
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
@@ -52,7 +47,6 @@
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](https://github.com/bbeckley-hub/Kleboscope/tests)
 [![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/bbeckley-hub/Kleboscope)
 
-
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![Conda](https://img.shields.io/badge/conda-✓-green.svg)](https://docs.conda.io/en/latest/)
 [![GitHub Issues](https://img.shields.io/github/issues/bbeckley-hub/kleboscope)](https://github.com/bbeckley-hub/kleboscope/issues)
@@ -61,21 +55,22 @@
 ![Profile Views](https://komarev.com/ghpvc/?username=bbeckley-hub&label=Profile%20Views&color=0e75b6&style=flat)
 [![Google Scholar](https://img.shields.io/badge/Google%20Scholar-Profile-4285F4?style=flat&logo=googlescholar&logoColor=white)](https://scholar.google.com/citations?user=CYNOsqIAAAAJ&hl=en)
 
-
-
 ![GitHub stats](https://github-readme-stats.vercel.app/api?username=bbeckley-hub&show_icons=true&theme=radical)
 ![Top Langs](https://github-readme-stats.vercel.app/api/top-langs/?username=bbeckley-hub&layout=compact&theme=radical)
 [![GitHub Streak](https://streak-stats.demolab.com?user=bbeckley-hub&theme=radical&date_format=j%20M%5B%20Y%5D)](https://git.io/streak-stats)
 
 </div>
 
+---
+
 ## 📋 **Table of Contents**
 
 - [🎯 Overview](#-overview)
-- [✨ Key Features](#-key-features)
+- [✨ What's New in v1.1.0](#-whats-new-in-v110)
+- [🔬 Key Features](#-key-features)
 - [⚡ Quick Start](#-quick-start)
 - [🔧 Installation](#-installation)
-- [🐳 Docker Usage](#-docker-usage)
+- [🐳 Docker & Singularity Usage](#-docker--singularity-usage--avoid-the-padlock-)
 - [🚀 Usage Guide](#-usage-guide)
 - [📁 Output Structure](#-output-structure)
 - [🔍 Analytical Modules](#-analytical-modules)
@@ -83,8 +78,6 @@
 - [🔬 Validation](#-validation)
 - [🔄 Alternative Tools](#-alternative-tools)
 - [🤖 AI Integration Guide](#-ai-integration-guide)
-- [🔮 Future Directions](#-future-directions)
-- [❓ Frequently Asked Questions](#-frequently-asked-questions)
 - [📚 Citation & Acknowledgements](#-citation--acknowledgements)
 - [👥 Authors & Contact](#-authors--contact)
 - [📄 License & Third‑Party Notices](#-license--third-party-notices)
@@ -103,20 +96,73 @@
 
 ### 💡 **Our Solution**
 Kleboscope delivers:
-- **✅ Single‑command installation** via Conda 
-- **✅ Parallel execution** of QC, MLST, and Kaptive for maximum speed
-- **✅ Comprehensive gene‑centric HTML report** with interactive tables, search, export, and scrollable genome lists (no truncation)
-- **✅ Tracking of critical resistance genes**: carbapenemases (*blaKPC*, *blaNDM*, *blaOXA‑48*), colistin (*mcr*), tigecycline (*tetX*), 16S rRNA methyltransferases
-- **✅ Tracking of hypervirulence markers**: aerobactin (*iuc*), salmochelin (*iro*), yersiniabactin (*ybt*), colibactin (*clb*), regulators of hypermucoidy (*rmpA*, *rmpA2*)
-- **✅ Environmental co‑selection markers**: biocide resistance (*qac*), heavy metal resistance (*sil*, *mer*, *ars*, *pco*, *czc*), mobile genetic elements, stress response genes
-- **✅ Built‑in pattern discovery**: ST‑capsule associations, high‑risk combinations, ICEKp and virulence plasmid tracking
-- **✅ AI integration guide** – prompts to help you mine data with large language models
+- ✅ **Single‑command installation** via Conda or Docker.
+- ✅ **Parallel execution** of QC, MLST, and Kaptive for maximum speed.
+- ✅ **Comprehensive gene‑centric HTML report** with interactive tables, search, export, and scrollable genome lists (no truncation).
+- ✅ **Tracking of critical resistance genes**: carbapenemases (*blaKPC*, *blaNDM*, *blaOXA‑48*), colistin (*mcr*), tigecycline (*tetX*), 16S rRNA methyltransferases.
+- ✅ **Tracking of hypervirulence markers**: aerobactin (*iuc*), salmochelin (*iro*), yersiniabactin (*ybt*), colibactin (*clb*), regulators of hypermucoidy (*rmpA*, *rmpA2*).
+- ✅ **Environmental co‑selection markers**: biocide resistance (*qac*), heavy metal resistance (*sil*, *mer*, *ars*, *pco*, *czc*), mobile genetic elements, stress response genes.
+- ✅ **Built‑in pattern discovery**: ST‑capsule associations, high‑risk combinations, ICEKp and virulence plasmid tracking.
+- ✅ **AI integration guide** – prompts to help you mine data with large language models.
+- ✅ **HPC‑friendly orchestrator** – temporary directories, comprehensive logging, modular skipping, and parallel execution.
 
 **Perfect for**: Clinical laboratories, outbreak investigations, research studies, and public health surveillance.
 
 ---
 
-## ✨ **Key Features**
+## ✨ **What's New in v1.1.0**
+
+We've taken Kleboscope to the next level with a major upgrade to the **Ultimate Reporter** and a complete **refactoring of the orchestrator** to make it **HPC‑friendly** and **parallel‑ready**.
+
+### 🧩 **Enhanced Ultimate Reporter**
+The report now features **19 interactive tabs**, each with detailed biological context:
+
+- **Summary** – Executive dashboard with key stats, alerts, and a “About This Report” guide.
+- **Samples** – MLST, K‑locus, O‑locus, and virulence gene count per genome.
+- **MLST** – Sequence Type distribution with percentages.
+- **QC** – Assembly metrics (N50, contigs, GC%, total length).
+- **Kaptive** – Capsule (K) and O‑locus typing with identity/coverage.
+- **Combinations** – ST–K, ST–O, K:O, and ST–K:O associations.
+- **AMR** – All resistance genes with genomes that carry them; 40+ filter buttons.
+- **Virulence** – Virulence factors (ybt, clb, iro, iuc, rmp, fim, mrk, tss…) with grouping.
+- **Bacmet** – Biocide & heavy metal resistance (qac, mer, ars, sil, cop…).
+- **Plasmids** – Plasmid replicons (IncF, IncI, Col…).
+- **Mutations** – **Enhanced with accurate statistics, tooltips on gene names, class summaries, and class‑specific filter buttons**.
+- **Patterns** – ICEKp markers, virulence plasmid markers, and gene co‑occurrence.
+- **High Risk** – Critical resistance + high‑risk virulence combinations.
+- **Databases** – Coverage stats per database.
+- **Credit** – Acknowledgements of all open‑source dependencies.
+- **AI Guide** – Instructions for uploading the JSON to ChatGPT/Claude/Gemini.
+- **Citation** – Colourful cards with copy buttons for every dependency (fixed DOI/URL handling).
+- **Funding** – The real story – no grants, just passion.
+- **Export** – CSV for every table; full JSON for downstream use.
+
+#### ✨ **Interactive Features**
+- **Search** – filter any table instantly.
+- **Highlight** – mark specific genome tags across the entire table.
+- **Grouping** – reorganise genome lists by **ST**, **K‑locus**, **O‑locus**, or combinations (ST‑K, ST‑O, ST‑K:O).
+- **Sorting** – click any column header to sort.
+- **Print** – print individual sections.
+- **Export** – all tables → CSV; full data → JSON.
+
+#### 🎨 **Design & Usability**
+- **19 unique tab colours** – visually distinct, easy to navigate.
+- **Detailed biology notes** – every tab explains the method, its importance, and how to use it.
+- **Colourful citation cards** – like EcoliTyper, now in Kleboscope.
+
+### ⚙️ **Orchestrator Refactor: HPC‑Friendly & Parallel**
+
+- **Temporary directories** – each module runs in its own temp dir; no leftover clutter.
+- **Parallel execution** – QC, MLST, and Kaptive run simultaneously using `ThreadPoolExecutor`.
+- **Comprehensive logging** – every command, stdout, stderr, and result logged to `kleboscope_run.log`.
+- **Modular skipping** – skip any module (`--skip-qc`, `--skip-mlst`, etc.) for quick re‑runs.
+- **Resource control** – set threads with `-t`.
+- **Robust error handling** – if one module fails, others continue.
+- **HPC‑friendly design** – uses `tempfile`, clean exit codes, minimal disk footprint.
+
+---
+
+## 🔬 **Key Features**
 
 ### 🔬 **Core Analytical Modules**
 
@@ -129,7 +175,7 @@ Kleboscope delivers:
 | **AMRfinderPlus** | Acquired resistance genes & point mutations | Gene frequency, risk levels | 3-4 min |
 | **Ultimate Reporter** | Integrated gene‑centric HTML report | Interactive tables, patterns, AI guide | <1 sec |
 
-*Timings for a single genome on a laptop; parallel execution for batch processing*
+*Timings for a single genome on a laptop; parallel execution for batch processing.
 
 ### 🛡️ **Species‑Specific Innovations for *K. pneumoniae***
 
@@ -162,10 +208,10 @@ Kleboscope delivers:
   - Pattern discovery tabs: ST‑K/O associations, high‑risk combinations, ICEKp markers, virulence plasmid markers
 
 ### 🚀 **Performance Advantages**
-- **Parallel first batch**: QC, MLST, and Kaptive run concurrently → ~4 minutes for 30 genomes
-- **Optimal resource usage**: Auto‑detects CPU cores and RAM using `psutil`
-- **Low memory footprint**: Runs comfortably on 4 GB RAM
-- **Scales linearly**: 30 genomes in 5.5 hours; 100 genomes estimated in ~1 day (single thread)
+- **Parallel first batch**: QC, MLST, and Kaptive run concurrently → ~4 minutes for 30 genomes.
+- **Optimal resource usage**: Auto‑detects CPU cores and RAM using `psutil`.
+- **Low memory footprint**: Runs comfortably on 4 GB RAM.
+- **Scales linearly**: 30 genomes in 5.5 hours; 100 genomes estimated in ~1 day (single thread).
 
 ---
 
@@ -178,14 +224,10 @@ Kleboscope delivers:
 conda create -n kleboscope -c conda-forge -c bioconda kleboscope
 conda activate kleboscope
 
-```
-**Conda Users only ( highly recommended):**
-```bash
-1. Run abricate --setupdb
-2. Run kleboscope --update-amr-db
-NB: Ignore this generic nessage, working on the fix in the next release! Very harmless....
-"⚠️ AMR database not found or outdated. Attempting automatic update..."
-
+# Set up ABRicate databases (required)
+abricate --setupdb
+# Update AMR database (required)
+kleboscope --update-amr-db
 ```
 
 **From source (for developers):**
@@ -195,13 +237,9 @@ cd kleboscope
 pip install -e .
 ```
 
-**Verify installation:**
+**Docker (recommended for isolation):**
 ```bash
-kleboscope --version
-```
-**Run this commands after installation:**
-```bash
-abricate --setupdb
+docker pull bbeckleyhub/kleboscope:latest
 ```
 
 ### **Run your first analysis**
@@ -228,9 +266,7 @@ kleboscope -i "*.fna" -o results --threads 4
 | **OS** | Linux, macOS, WSL2 | Linux |
 
 ### **Dependencies**
-All external tools and databases are **bundled** with Kleboscope as build dependencies, but you can inspect the required Python packages in the [`environment.yml`](environment.yml) file.
-
-**Key dependencies:**  
+All external tools and databases are **bundled** with Kleboscope as build dependencies. Key dependencies:
 - Python ≥3.9
 - biopython, pandas, numpy, beautifulsoup4, psutil
 - Bundled binaries: MLST, Kaptive, ABRicate, AMRfinderPlus
@@ -239,178 +275,69 @@ No separate installation of external tools is required.
 
 ---
 
-## 🐳 **Kleboscope Docker Image & Usage**
+## 🐳 **Docker & Singularity Usage – avoid the padlock 🔓**
 
-For users who prefer a containerized environment or cannot install Conda, we provide a Docker image with all dependencies pre‑installed and ABRicate databases pre‑configured. Run the complete *Klebsiella pneumoniae* genomic surveillance pipeline with zero installation – **just Docker**.
-
-## 🚀 Quick Start
-
-### Pull the image
+By default, Docker runs containers as `root`, so any files written to bind‑mounted directories will be owned by `root:root` – resulting in padlock icons and the need for `sudo chown`. **The fix is simple:** add `-u $(id -u):$(id -g)` to run the container with your host user’s UID/GID.
 
 ```bash
+# Pull the latest image
 docker pull bbeckleyhub/kleboscope:latest
+
+# Test installation
+docker run --rm bbeckleyhub/kleboscope:latest --help
+
+# ✅ Recommended (no padlock, no sudo chown)
+docker run --rm \
+  -u $(id -u):$(id -g) \
+  -v $(pwd):/data \
+  bbeckleyhub/kleboscope:latest \
+  -i "/data/*.fna" -o /data/output -t 4
+
+# ❌ Old way (creates root‑owned files)
+docker run --rm \
+  -v $(pwd):/data \
+  bbeckleyhub/kleboscope:latest \
+  -i "/data/*.fna" -o /data/output -t 4
+# Then you need: sudo chown -R $USER:$USER ./output
 ```
 
-### Run on a single FASTA file
+**Why `-u $(id -u):$(id -g)`?**  
+- It tells Docker to run the container’s process with the same UID and primary GID as your host user.  
+- All files created in the mounted volume will be owned by **you** – no padlock, no permission errors, no cleanup.
 
-```bash
-docker run --rm -v $(pwd):/data bbeckleyhub/kleboscope:latest -i "/data/genome.fna" -o /data/output
-```
-
-After the run, output files are owned by `root` on your host. To reclaim ownership:
-
-```bash
-sudo chown -R $USER:$USER ./output
-```
-
-### Run on all FASTA files in the current directory
-
-```bash
-docker run --rm -v $(pwd):/data bbeckleyhub/kleboscope:latest -i "/data/*.fna" -o /data/output
-```
+> **Note for macOS / Windows (Docker Desktop):** UID/GID mapping works out‑of‑the‑box. The same command works fine.
 
 ---
 
-## 📖 Detailed Usage
+### **Singularity / Apptainer (HPC clusters – no `sudo`, correct ownership)**  
 
-### Basic syntax
-
-```bash
-docker run --rm -v $(pwd):/data bbeckleyhub/kleboscope:latest [OPTIONS]
-```
-
-- `--rm` : remove container after exit
-- `-v $(pwd):/data` : mount current directory to `/data` inside container
-- Input files must be under `/data` (e.g., `/data/*.fna`)
-- Output directory must also be under `/data` (e.g., `/data/output`)
-
-### All Kleboscope options work
+Kleboscope writes temporary files to its own temporary directories (via Python’s `tempfile`), which are world‑writable by default. Singularity automatically maps your host user ID, so output files are **always** owned by you – no extra flags required.
 
 ```bash
-docker run --rm -v $(pwd):/data bbeckleyhub/kleboscope:latest \
-  -i "/data/*.fna" -o /data/output \
-  --threads 8 --skip-qc --skip-amr
-```
-
-See `docker run --rm bbeckleyhub/kleboscope:latest -h` for all options.
-
-### Using custom threads
-
-```bash
-docker run --rm -v $(pwd):/data bbeckleyhub/kleboscope:latest \
-  -i "/data/*.fna" -o /data/output -t 16
-```
-
----
-
-## 🔧 Handling File Permissions (The “Padlock” Issue)
-
-By default, Docker runs as `root` inside the container. Any files written to your mounted directory will be owned by `root:root`.  
-You have three options:
-
-### 1. Change ownership after the run (easiest)
-
-```bash
-sudo chown -R $USER:$USER ./output
-```
-
-### 2. Run with your host user ID (requires a small code fix – coming soon)
-
-Currently not fully supported because Kleboscope needs to write to its own installation directory. A future update will fix this.
-
-### 3. Use Singularity (recommended for HPC, no `sudo` needed)
-
-See the [Singularity section](#singularity-for-hpc-no-sudo) below.
-
----
-
-## 🧪 Testing Your Docker Setup
-
-### Check help message
-
-```bash
-docker run --rm bbeckleyhub/kleboscope:latest -h
-```
-
-### Verify ABRicate databases are installed
-
-```bash
-docker run --rm --entrypoint /bin/bash bbeckleyhub/kleboscope:latest -c "abricate --list | head -5"
-```
-
-Expected output: list of databases (ncbi, card, vfdb, etc.)
-
-### Verify jq is installed (important for correct JSON parsing)
-
-```bash
-docker run --rm --entrypoint /bin/bash bbeckleyhub/kleboscope:latest -c "jq --version"
-```
-
-Should output `jq-1.6` or similar.
-
----
-
-## 🖥️ Singularity for HPC (no `sudo`, correct ownership)
-
-On HPC clusters that support [Singularity/Apptainer](https://sylabs.io/singularity/), you can run Kleboscope **without `sudo`** and output files will be owned by your user automatically.
-
-> **Important:** Kleboscope writes temporary files inside its own installation directory (e.g., `/opt/kleboscope/...`). Singularity mounts containers as read‑only by default, so you **must** add the `--writable-tmpfs` flag to allow these writes. The flag creates an ephemeral, writable overlay in memory – no permanent changes are made to the container.
-
-### Option A: Direct pull (if network allows)
-
-```bash
+# Pull the SIF image (once)
 singularity pull kleboscope.sif docker://bbeckleyhub/kleboscope:latest
+
+# Run – files are owned by your HPC user automatically
+singularity run -B $(pwd):/data kleboscope.sif -i "/data/*.fna" -o /data/output
+
+# If your cluster restricts temporary directories, add `--writable-tmpfs` for safety:
 singularity run --writable-tmpfs -B $(pwd):/data kleboscope.sif -i "/data/*.fna" -o /data/output
 ```
 
-### Option B: Convert from a local Docker image (when `singularity pull` fails)
-
-If you encounter TLS timeouts or other network errors (common on some HPCs), convert an existing Docker image to a Singularity SIF file on a machine with Docker, then transfer the `.sif` file to the HPC.
-
-**Step 1 – on a machine with Docker (e.g., your laptop):**
-
-```bash
-docker pull bbeckleyhub/kleboscope:latest
-docker save bbeckleyhub/kleboscope:latest -o kleboscope.tar
-singularity build kleboscope.sif docker-archive://kleboscope.tar
-```
-
-Now copy `kleboscope.sif` to your HPC home or project directory (e.g., using `scp`).
-
-**Step 2 – on the HPC (no sudo needed):**
-
-```bash
-singularity run --writable-tmpfs -B $(pwd):/data kleboscope.sif -i "/data/*.fna" -o /data/output
-```
-
-### Explanation of flags
-
-| Flag | Purpose |
-|------|---------|
-| `--writable-tmpfs` | Creates a temporary writable overlay – **required** for Kleboscope to write intermediate files to `/opt/...` |
-| `-B $(pwd):/data` | Binds your current directory to `/data` inside the container (input files are read from here, output is written here) |
-| `-i "/data/*.fna"` | Input pattern – use quotes to prevent shell expansion on the host |
-| `-o /data/output` | Output directory (will appear as `./output` on your host) |
-
-### Additional options
-
-You can use any Kleboscope flag, e.g.:
-
-```bash
-singularity run --writable-tmpfs -B $(pwd):/data kleboscope.sif \
-    -i "/data/*.fna" -o /data/output --threads 8 --skip-qc
-```
-
-### Verify it works
-
-After a successful run, you will see output indicating each module completed. All result files in `./output` will be owned by **your HPC user** – no `sudo chown` needed.
+**Why Singularity users have no padlock:**  
+- Singularity/Apptainer **never** runs as root on HPC clusters; it always maps your host UID/GID into the container.  
+- The `-B` bind‑mount preserves ownership, so all output files are created with your user credentials.
 
 ---
 
-### Docker Hub Repository
+### **Summary for HPC admins and Docker users**
 
-All releases are available at:  
-[https://hub.docker.com/r/bbeckleyhub/kleboscope](https://hub.docker.com/r/bbeckleyhub/kleboscope)
+| Platform | Command (recommended) | Ownership of output files |
+|----------|----------------------|---------------------------|
+| **Docker** | `docker run --rm -u $(id -u):$(id -g) -v "$PWD:/data" bbeckleyhub/kleboscope ...` | Your user |
+| **Singularity** | `singularity run -B "$PWD:/data" kleboscope.sif ...` | Your user (automatically) |
+
+No more `sudo chown`, no more padlock icons, no more angry HPC emails.
 
 ---
 
@@ -433,6 +360,21 @@ kleboscope -i genome.fna -o results --skip-qc --skip-amr
 | `--skip-abricate` | Skip ABRicate screening |
 | `--skip-amr` | Skip AMRfinder analysis |
 | `--skip-summary` | Skip ultimate reporter generation |
+
+### **AMR Finder Plus Flags**
+
+| Option | Effect |
+|--------|--------|
+| `--amr-min-identity` | Minimum identity for AMR hits (0..1) |
+| `--amr-min-coverage` | Minimum coverage for AMR hits (0..1) |
+| `--skip-amr-mutations` | Disable point mutation reporting in AMR (enabled by default) |
+
+### **ABRicate Flags**
+
+| Option | Effect |
+|--------|--------|
+| `--abricate-min-id` | Minimum identity for ABRicate hits (default: 80) |
+| `--abricate-min-cov` | Minimum coverage for ABRicate hits (default: 80) |
 
 ### **Real‑World Examples**
 
@@ -477,16 +419,19 @@ results/
 ### **1. FASTA QC**
 - **Metrics**: total length, contig count, N50/N75/N90, L50/L75/L90, mean/median length, GC%, AT%, ambiguous bases, N‑runs, homopolymers, duplicate sequences
 - **Output**: interactive HTML with warnings, TSV/JSON for downstream analysis
+- **Interpretation**: High N50 (>50 kb) and low contig count (<200) indicate good assembly quality.
 
 ### **2. MLST Typing**
 - **Database**: [PubMLST](https://pubmlst.org/kpneumoniae/) (Pasteur scheme)
 - **Tool**: [MLST](https://github.com/tseemann/mlst) (v2.23)
 - **Output**: ST, allele profile, clonal complex, classification, outbreak potential
+- **Surveillance value**: Identify epidemic clones (ST258, ST11, ST23, etc.) and track their spread.
 
 ### **3. Kaptive Capsule Typing**
 - **Databases**: `kp_k` and `kp_o` (curated by [Kaptive team](https://github.com/katholt/Kaptive))
 - **Tool**: [Kaptive](https://github.com/katholt/Kaptive) (v3.1.0)
 - **Output**: K locus, O locus, identity, coverage, confidence
+- **Clinical relevance**: K types K1, K2, K5, K54, K57 are associated with hypervirulence; O types influence serum resistance.
 
 ### **4. ABRicate Screening**
 - **Tool**: [ABRicate](https://github.com/tseemann/abricate) (v1.2.0)
@@ -516,6 +461,7 @@ results/
 - **Database**: 2026‑01‑21.1 (included)
 - **Organism**: *Klebsiella pneumoniae* (enables point‑mutation detection)
 - **Output**: per‑sample reports + summary table with risk levels (Critical, High, Standard)
+- **Mutations**: Detects point mutations in *gyrA*, *parC*, *rpoB*, *mgrB*, *pmrAB*, *lpx*, *envZ*, etc.
 
 ### **6. Ultimate Reporter**
 - **Input**: All module summary HTML files
@@ -556,7 +502,7 @@ Memory usage never exceeded 3 GB.
 
 ## 🔬 **Validation**
 
-Kleboscope was validated on 30 publicly available *K. pneumoniae* genomes. **All results were in complete concordance with PubMLST, CGE, and Kaptive reference databases.**
+Kleboscope was validated on publicly available *K. pneumoniae* genomes. **All results were in complete concordance with PubMLST, CGE, and Kaptive reference databases.**
 
 ### **Validation Highlights**
 - **MLST**: 10 distinct STs, dominated by ST11 (50.0%)
@@ -571,13 +517,15 @@ For full validation data, see the interactive report (`kleboscope_ultimate_repor
 
 ## 🔄 **Alternative Tools**
 
-If Kleboscope does not fit your workflow, you may consider:
+If Kleboscope does not fit your workflow, you may consider these alternatives:
 
-- **[Kleborate](https://github.com/katholt/Kleborate)** – the established tool for *K. pneumoniae* typing, resistance and virulence scoring (tabular output).  
-- **[Bactopia](https://bactopia.github.io/)** – a flexible multi‑species pipeline for raw reads (requires Nextflow).  
-- **[Nullarbor](https://github.com/tseemann/nullarbor)** – another multi‑species pipeline for raw reads.
+- **[Kleborate](https://github.com/katholt/Kleborate)** – A well‑established tool for *K. pneumoniae* typing, resistance and virulence scoring (tabular output).
+- **[Bactopia](https://bactopia.github.io/)** – A flexible, multi‑species pipeline for raw reads (FASTQ) that requires Nextflow.
+- **[Nullarbor](https://github.com/tseemann/nullarbor)** – A multi‑species pipeline for raw reads, popular in public health microbiology.
+- **[Pathogenwatch](https://pathogenwatch.com/)** – A web‑based platform for genomic surveillance of multiple pathogens, including *K. pneumoniae*.
+- **[AMRFinderPlus standalone](https://www.ncbi.nlm.nih.gov/pathogens/amr/)** – If you only need AMR gene detection, you can run AMRFinderPlus directly.
 
-Kleboscope complements these tools by offering a **gene‑centric interactive HTML report** with environmental markers, plasmid typing, and pattern discovery, all in a single, easy‑to‑use command.
+Each of these tools has its own strengths and may be more suitable depending on your specific requirements (e.g., raw read support, web interface, or a different output format).
 
 ---
 
@@ -586,9 +534,9 @@ Kleboscope complements these tools by offering a **gene‑centric interactive HT
 Kleboscope’s ultimate HTML report is designed to be AI‑friendly. Use any large language model (ChatGPT, Claude, Gemini) to gain deeper insights.
 
 ### **Quick Start**
-1. **Open** `kleboscope_ultimate_report.html` in your browser
-2. **Copy** any table or section
-3. **Paste** into your AI chat
+1. **Open** `kleboscope_ultimate_report.html` in your browser.
+2. **Copy** any table or section.
+3. **Paste** into your AI chat.
 4. **Ask** questions like:
 
 **For MLST and capsule types:**
@@ -623,82 +571,17 @@ Kleboscope’s ultimate HTML report is designed to be AI‑friendly. Use any lar
 
 ---
 
-## 🔮 **Future Directions**
-
-We are actively developing Kleboscope and welcome community contributions. Planned enhancements include:
-
-- **Raw read support** (FASTQ) with integrated assembly (Shovill) to eliminate the need for pre‑assembled genomes.
-- **Web interface** similar to StaphScope Web, allowing non‑bioinformaticians to run the pipeline in a browser.
-- **Real‑time database updates** for ABRicate and AMRfinder.
-- **Machine learning module** for phenotype prediction and outbreak risk scoring.
-- **Expanded environmental marker database** (e.g., disinfectant residues, heavy metal contamination).
-- **Plugin system** for community‑contributed analysis modules.
-- **Integration with public health databases** (e.g., NCBI Pathogen Detection) for large‑scale surveillance.
-
-We invite collaboration on these fronts – see [Authors & Contact](#-authors--contact).
-
----
-
-## ❓ **Frequently Asked Questions**
-
-### **General Questions**
-
-**Q: Is Kleboscope free?**  
-A: Yes! Kleboscope is open‑source under the MIT license. Free for academic, clinical, and commercial use.
-
-**Q: How is Kleboscope different from Kleborate?**  
-A: Kleboscope offers:
-- Gene‑centric, interactive HTML report (not just tabular)
-- Environmental co‑selection markers (BACMET2)
-- Plasmid replicon typing (PlasmidFinder)
-- Pattern discovery (ST‑capsule associations, high‑risk combos, ICEKp/virulence plasmid tracking)
-- AI integration guide
-- Scrollable genome lists with no truncation
-
-**Q: Can I use Kleboscope for clinical diagnostics?**  
-A: Kleboscope is a research tool. While highly accurate, results should be validated with orthogonal methods for clinical decision‑making.
-
-### **Technical Questions**
-
-**Q: Why only assembled genomes?**  
-A: The pipeline is optimised for assembled genomes, which are commonly available from public databases and clinical labs. Raw read support is planned.
-
-**Q: How do I update databases?**  
-A: Run `abricate --setupdb` for ABRicate databases. For AMRfinder, the bundled database is updated with each release. We will provide updates regularly.
-
-**Q: Can I run Kleboscope on Windows?**  
-A: Yes, via WSL2 (Windows Subsystem for Linux). Native Windows support is planned.
-
-**Q: How do I handle very large datasets (1000+ genomes)?**  
-A: Use the CLI with glob patterns; the pipeline scales linearly. On a cluster, you can increase `--threads` (AMRfinder uses multiple cores). Consider running modules separately with skip flags if needed.
-
-### **Analysis Questions**
-
-**Q: What does “Capsule null” mean in Kaptive results?**  
-A: This indicates the assembly does not contain a complete K locus, often because of fragmentation or because the strain lacks the typical capsule. The O locus may still be present.
-
-**Q: How is risk level assigned?**  
-A: Risk levels are based on clinical relevance:
-- **Critical**: carbapenemases, mcr, tetX, 16S rRNA methyltransferases, etc.
-- **High**: ESBLs, colistin (point mutations), aminoglycoside resistance
-- **Standard**: other resistance genes
-
-**Q: Are virulence factors from other species filtered out?**  
-A: Yes. The ultimate reporter uses a curated list of *K. pneumoniae*‑relevant genes. ABRicate databases are generic, but the report categories focus on known markers.
-
----
-
 ## 📚 **Citation & Acknowledgements**
 
 ### **Citing Kleboscope**
 If you use Kleboscope in your research, please cite:
 
-> Beckley,B. _et. al_, (2026). Kleboscope: A gene‑centric, species‑optimized computational pipeline for comprehensive *Klebsiella pneumoniae* genomic surveillance. *Nature Com.* (under preparation).
+> Beckley, B. *et al.* (2026). Kleboscope: A gene‑centric, species‑optimized computational pipeline for comprehensive *Klebsiella pneumoniae* genomic surveillance. *Under review*.
 
 **Software citation:**
 ```bibtex
 @software{kleboscope2026,
-  author = {Beckley Brown et. al},
+  author = {Beckley Brown},
   title = {Kleboscope: A gene‑centric, species‑optimized computational pipeline for comprehensive Klebsiella pneumoniae genomic surveillance},
   year = {2026},
   publisher = {GitHub},
@@ -714,9 +597,9 @@ Kleboscope stands on the shoulders of many outstanding open‑source projects. W
 
 | Tool | Citation |
 |------|----------|
-| **MLST** | Seemann T. (2018). mlst. GitHub. https://github.com/tseemann/mlst |
+| **MLST** | Seemann T. (2018). mlst. GitHub. |
 | **Kaptive** | Wick RR, Heinz E, Holt KE, Wyres KL. (2018). Kaptive web: user‑friendly capsule and lipopolysaccharide serotype prediction for *Klebsiella* genomes. *J Clin Microbiol*, 56(6):e00197-18. |
-| **ABRicate** | Seemann T. (2018). ABRicate. GitHub. https://github.com/tseemann/abricate |
+| **ABRicate** | Seemann T. (2018). ABRicate. GitHub. |
 | **AMRfinderPlus** | Feldgarden M, et al. (2019). AMRFinderPlus and the Reference Gene Catalog facilitate examination of the genomic links among antimicrobial resistance, stress response, and virulence. *Sci Rep*, 11:12728. |
 
 #### **Databases**
@@ -735,7 +618,7 @@ Kleboscope stands on the shoulders of many outstanding open‑source projects. W
 
 ### **Acknowledgements**
 
-We thank the developers of all the tools and databases that Kleboscope integrates, and the open‑source community for their invaluable contributions. Special thanks to Torsten Seemann (MLST, ABRicate), the NCBI AMR team, the CGE group (PlasmidFinder, ResFinder), and the Kaptive team for their foundational work.
+We thank the developers of all the tools and databases that Kleboscope integrates, and the open‑source community for their invaluable contributions. Special thanks to Torsten Seemann (MLST, ABRicate), the NCBI AMR team, the CGE group (PlasmidFinder, ResFinder), and the Kaptive team for their foundational work. We also acknowledge the ESKAPE tools (AcinetoScope, EcoliTyper, StaphScope) for sharing code and ideas, and the ESCAPE AMR initiative for fostering collaboration.
 
 ---
 
@@ -745,10 +628,8 @@ We thank the developers of all the tools and databases that Kleboscope integrate
 - University of Ghana Medical School  
 - 📧 brownbeckley94@gmail.com  
 - 🐙 GitHub: [bbeckley-hub](https://github.com/bbeckley-hub)  
-- LinkedIn: [@brownbeckley](https://www.linkedin.com/in/brown-beckley-190315319/)
+- LinkedIn: [@brownbeckley](https://www.linkedin.com/in/brown-beckley-190315319)
 
-
-### **Collaboration Opportunities**
 We welcome collaborations on:
 - *K. pneumoniae* epidemiology and outbreak studies
 - Clinical validation of resistance/virulence markers
@@ -761,32 +642,15 @@ We welcome collaborations on:
 
 ## 📄 **License & Third‑Party Notices**
 
-### **Core Kleboscope Code**
-The Kleboscope pipeline code (workflow engine, report generation, HTML templates, Python modules) is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
+The Kleboscope pipeline code is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
 
-### **Third‑Party Tools & Databases**
-Kleboscope bundles several external tools and databases under their own licenses. By using Kleboscope, you agree to comply with the respective licenses of these components.
-
-| Component | License |
-|-----------|---------|
-| MLST (tseemann) | GPL v2 |
-| Kaptive | GPL v3 |
-| ABRicate (tseemann) | GPL v2 |
-| AMRfinderPlus (NCBI) | Public Domain |
-| PlasmidFinder (CGE) | Free for academic use |
-| ResFinder (CGE) | Free for academic use |
-| CARD | CC BY 4.0 |
-| VFDB | Open access |
-| BacMet2 | Open access |
-| PubMLST | Open access for research |
-
-Full license texts and attribution details are available in the respective tool repositories and websites linked above.
+Third‑party tools are governed by their own licenses (see the respective repositories). By using Kleboscope, you agree to comply with the respective licenses of these components.
 
 ---
 
 <div align="center">
 
-## **🚀 Ready to transform your *K. pneumoniae* surveillance?**
+## 🚀 **Ready to transform your *K. pneumoniae* surveillance?**
 
 **From FASTA to actionable insights in one command.**
 
