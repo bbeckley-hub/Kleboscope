@@ -3,7 +3,7 @@
 Kleboscope FASTA QC - Comprehensive Quality Control for K. pneumoniae with Beautiful HTML Reports
 Author: Brown Beckley
 Affiliation: University of Ghana Medical School - Department of Medical Biochemistry
-Date: 2026-03-20
+Date: 2026-07-28
 Send a quick mail for any issues or further explanations.
 """
 
@@ -50,7 +50,7 @@ class KleboscopeFASTAQC:
         # Metadata
         self.metadata = {
             "tool_name": "Kleboscope FASTA QC Analysis",
-            "version": "1.1.0", 
+            "version": "1.2.0", 
             "authors": ["Brown Beckley"],
             "email": "brownbeckley94@gmail.com",
             "github": "https://github.com/bbeckley-hub",

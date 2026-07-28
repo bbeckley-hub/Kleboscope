@@ -2,9 +2,9 @@
 """
 Kleboscope MLST Module - Complete with Beautiful HTML Reports
 Author: Brown Beckley
-GitHub: bbeckley-hub
+GitHub: bbeckley-hub <brownbeckley94@gmail.com>
 Affiliation: University of Ghana Medical School - Department of Medical Biochemistry
-Date: 2026-03-20
+Date: 2026-07-28
 """
 
 import os

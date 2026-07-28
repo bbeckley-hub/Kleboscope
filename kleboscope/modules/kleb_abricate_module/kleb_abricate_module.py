@@ -5,7 +5,7 @@ Comprehensive ABRicate analysis for Klebsiella pneumoniae with HTML, TSV, and JS
 Author: Brown Beckley <brownbeckley94@gmail.com>
 Affiliation: University of Ghana Medical School - Department of Medical Biochemistry
 Date: 2026-05-24
-Version:1.1.0 (Klebsiella-optimized, complete)
+Version: 1.2.0 (Klebsiella-optimized, with dynamic min-id/min-cov)
 """
 
 import subprocess
@@ -27,10 +27,12 @@ from collections import defaultdict, Counter
 class AbricateExecutor:
     """ABRicate executor for Klebsiella with comprehensive reporting - MAXIMUM SPEED"""
     
-    def __init__(self, cpus: int = None):
+    def __init__(self, cpus: int = None, min_id: float = 80.0, min_cov: float = 80.0):
         self.logger = self._setup_logging()
         self.available_ram = self._get_available_ram()
         self.cpus = self._calculate_optimal_cpus(cpus)
+        self.min_id = min_id
+        self.min_cov = min_cov
         
         # Databases to be used
         self.required_databases = [
@@ -113,6 +115,7 @@ class AbricateExecutor:
             'blaMOX', 'blaCIT', 'blaEBC', 'blaCMH', 'blaBIL', 'blaCepA', 'blaCblA', 'blaCKO',
             'blaBEL', 'blaPER', 'blaVEB', 'blaGES-1', 'blaGES-3', 'blaIBC', 'blaSFO', 'blaTLA',
             'blaZ', 'blaC', 'blaB', 'blaA', 'blaP', 'blaO', 'blaU', 'blaQ', 'blaR', 'blaS',
+            # CTX-M series (up to 300)
             'blaCTX-M-1', 'blaCTX-M-2', 'blaCTX-M-3', 'blaCTX-M-4', 'blaCTX-M-5', 'blaCTX-M-6',
             'blaCTX-M-7', 'blaCTX-M-8', 'blaCTX-M-9', 'blaCTX-M-10', 'blaCTX-M-11', 'blaCTX-M-12',
             'blaCTX-M-13', 'blaCTX-M-14', 'blaCTX-M-15', 'blaCTX-M-16', 'blaCTX-M-17', 'blaCTX-M-18',
@@ -167,7 +170,7 @@ class AbricateExecutor:
         
         self.metadata = {
             "tool_name": "Kleboscope ABRicate",
-            "version": "1.1.0",
+            "version": "1.2.0",
             "authors": ["Brown Beckley"],
             "email": "brownbeckley94@gmail.com",
             "github": "https://github.com/bbeckley-hub",
@@ -285,17 +288,22 @@ class AbricateExecutor:
         except Exception as e:
             self.logger.error("Error setting up databases: %s", e)
     
-    def run_abricate_single_db(self, genome_file: str, database: str, output_dir: str) -> Dict[str, Any]:
+    def run_abricate_single_db(self, genome_file: str, database: str, output_dir: str,
+                               min_id: float = None, min_cov: float = None) -> Dict[str, Any]:
+        if min_id is None:
+            min_id = self.min_id
+        if min_cov is None:
+            min_cov = self.min_cov
         genome_name = Path(genome_file).stem
         output_file = os.path.join(output_dir, f"abricate_{database}.txt")
         cmd = [
             'abricate',
             genome_file,
             '--db', database,
-            '--minid', '80',
-            '--mincov', '80'
+            '--minid', str(min_id),
+            '--mincov', str(min_cov)
         ]
-        self.logger.info("Running ABRicate: %s --db %s", genome_name, database)
+        self.logger.info("Running ABRicate: %s --db %s (minid=%s, mincov=%s)", genome_name, database, min_id, min_cov)
         try:
             with open(output_file, 'w') as outfile:
                 subprocess.run(cmd, stdout=outfile, stderr=subprocess.PIPE, text=True, check=True)
@@ -687,7 +695,7 @@ class AbricateExecutor:
         analysis = {
             'critical_resistance_genes': [],
             'high_risk_virulence_genes': [],
-            'beta_lactamase_genes': [],  # non-critical beta-lactamases
+            'beta_lactamase_genes': [],
             'other_genes': [],
             'resistance_classes': {},
             'total_critical_resistance': 0,
@@ -1071,7 +1079,7 @@ class AbricateExecutor:
                     <thead><tr><th>Gene</th><th>Product</th><th>Database</th><th>Coverage</th><th>Identity</th></tr></thead>
                     <tbody>
 """
-            for g in analysis['beta_lactamase_genes'][:1000]:  # limit to 1000
+            for g in analysis['beta_lactamase_genes'][:1000]:
                 html_content += f"""
                     <tr class="present">
                         <td><strong>{g['gene']}</strong></td>
@@ -1085,7 +1093,7 @@ class AbricateExecutor:
                 html_content += f"<tr><td colspan='5'>... and {len(analysis['beta_lactamase_genes'])-1000} more</td></tr>"
             html_content += "</tbody></table></div></div>"
         
-        # Other genes table (if any)
+        # Other genes table
         if analysis['other_genes']:
             html_content += """
         <div class="report-section">
@@ -1095,7 +1103,7 @@ class AbricateExecutor:
                     <thead><tr><th>Gene</th><th>Product</th><th>Database</th><th>Coverage</th><th>Identity</th></tr></thead>
                     <tbody>
 """
-            for g in analysis['other_genes'][:5000]:  # limit to 5000
+            for g in analysis['other_genes'][:5000]:
                 html_content += f"""
                     <tr class="present">
                         <td><strong>{g['gene']}</strong></td>
@@ -1558,7 +1566,7 @@ class AbricateExecutor:
                     'unique_genes': len(gene_frequency)
                 },
                 'gene_frequency': gene_frequency,
-                'hits': data['hits'][:100000]  # limit to first 100000 hits
+                'hits': data['hits'][:100000]
             }
             json_file = os.path.join(output_base, f"klebo_{db}_summary.json")
             with open(json_file, 'w') as f:
@@ -1632,14 +1640,15 @@ class AbricateExecutor:
             json.dump(master_summary, f, indent=2, default=str)
         self.logger.info("✓ Created master JSON summary: %s", json_file)
     
-    def process_single_genome(self, genome_file: str, output_base: str = "abricate_results") -> Dict[str, Any]:
+    def process_single_genome(self, genome_file: str, output_base: str = "abricate_results",
+                              min_id: float = None, min_cov: float = None) -> Dict[str, Any]:
         genome_name = Path(genome_file).stem
         results_dir = os.path.join(output_base, genome_name)
         os.makedirs(results_dir, exist_ok=True)
         databases = self.required_databases
         results = {}
         for db in databases:
-            result = self.run_abricate_single_db(genome_file, db, results_dir)
+            result = self.run_abricate_single_db(genome_file, db, results_dir, min_id, min_cov)
             results[db] = result
         self.create_comprehensive_html_report(genome_name, results, results_dir)
         return {
@@ -1648,7 +1657,8 @@ class AbricateExecutor:
             'total_hits': sum(r['hit_count'] for r in results.values())
         }
     
-    def process_multiple_genomes(self, genome_pattern: str, output_base: str = "abricate_results") -> Dict[str, Any]:
+    def process_multiple_genomes(self, genome_pattern: str, output_base: str = "abricate_results",
+                                 min_id: float = None, min_cov: float = None) -> Dict[str, Any]:
         if not self.check_abricate_installed():
             raise RuntimeError("ABRicate not properly installed")
         self.setup_abricate_databases()
@@ -1665,7 +1675,7 @@ class AbricateExecutor:
         all_results = {}
         if len(genome_files) > 1 and self.cpus > 1:
             with ThreadPoolExecutor(max_workers=self.cpus) as executor:
-                future_to_genome = {executor.submit(self.process_single_genome, g, output_base): g for g in genome_files}
+                future_to_genome = {executor.submit(self.process_single_genome, g, output_base, min_id, min_cov): g for g in genome_files}
                 for future in as_completed(future_to_genome):
                     genome = future_to_genome[future]
                     try:
@@ -1677,7 +1687,7 @@ class AbricateExecutor:
         else:
             for genome in genome_files:
                 try:
-                    result = self.process_single_genome(genome, output_base)
+                    result = self.process_single_genome(genome, output_base, min_id, min_cov)
                     all_results[Path(genome).stem] = result
                     self.logger.info("✓ Completed: %s (%d hits)", result['genome'], result['total_hits'])
                 except Exception as e:
@@ -1690,19 +1700,22 @@ class AbricateExecutor:
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Kleboscope ABRicate Analysis - MAXIMUM SPEED VERSION',
+        description='Kleboscope ABRicate Analysis - MAXIMUM SPEED VERSION with adjustable thresholds',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
   python kleb_abricate_module.py "*.fasta"
-  python kleb_abricate_module.py "*.fna" --output my_results --cpus 8"""
+  python kleb_abricate_module.py "*.fna" --output my_results --cpus 8 --min-id 85 --min-cov 90"""
     )
     parser.add_argument('pattern', help='File pattern for genomes (e.g., "*.fasta")')
     parser.add_argument('--cpus', '-c', type=int, default=None, help='Number of CPU cores (default: auto-detect)')
     parser.add_argument('--output', '-o', default='abricate_results', help='Output directory')
+    parser.add_argument('--min-id', type=float, default=80.0, help='Minimum identity for hits (default: 80)')
+    parser.add_argument('--min-cov', type=float, default=80.0, help='Minimum coverage for hits (default: 80)')
     args = parser.parse_args()
-    executor = AbricateExecutor(cpus=args.cpus)
+    
+    executor = AbricateExecutor(cpus=args.cpus, min_id=args.min_id, min_cov=args.min_cov)
     try:
-        results = executor.process_multiple_genomes(args.pattern, args.output)
+        results = executor.process_multiple_genomes(args.pattern, args.output, args.min_id, args.min_cov)
         executor.logger.info("\n" + "="*50)
         executor.logger.info("📊 FINAL SUMMARY")
         executor.logger.info("="*50)
@@ -1722,6 +1735,7 @@ def main():
             total_high += analysis['total_high_risk_virulence']
         executor.logger.info("\n📁 Results saved to: %s", args.output)
         executor.logger.info("⚡ MAXIMUM SPEED: %d cores utilized", executor.cpus)
+        executor.logger.info("🔧 Thresholds: min-id=%s, min-cov=%s", args.min_id, args.min_cov)
     except Exception as e:
         executor.logger.error("Analysis failed: %s", e)
         sys.exit(1)

@@ -4,7 +4,7 @@ Kleboscope Kaptive K/O Locus Analysis - K. pneumoniae Capsule and Lipopolysaccha
 Comprehensive Kaptive analysis for K. pneumoniae with beautiful HTML reporting
 Author: Brown Beckley
 Affiliation: University of Ghana Medical School - Department of Medical Biochemistry
-Date: 2026-03-20
+Date: 2026-07-28
 """
 
 import subprocess
@@ -40,7 +40,7 @@ class KleboscopeKaptive:
 
         self.metadata = {
             "tool_name": "Kleboscope Kaptive K/O Analysis",
-            "version": "1.1.0",
+            "version": "1.2.0",
             "authors": ["Brown Beckley"],
             "email": "brownbeckley94@gmail.com",
             "github": "https://github.com/bbeckley-hub",

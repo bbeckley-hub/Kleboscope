@@ -3,8 +3,8 @@
 Kleboscope Main Orchestrator – Parallel Execution with Scientific Quotes
 Complete K. pneumoniae typing & resistance pipeline
 Author: Brown Beckley <brownbeckley94@gmail.com>
-Version: 1.1.0
-Date: 2026-06-19
+Version: 1.2.0
+Date: 2026-07-28
 Affiliation: University of Ghana Medical School – Department of Medical Biochemistry
 """
 
@@ -18,12 +18,30 @@ import tempfile
 import random
 import logging
 import traceback
+import signal
+import atexit
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Set
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
+
+# Global flag for graceful shutdown
+_should_exit = False
+
+def signal_handler(sig, frame):
+    global _should_exit
+    print("\n" + "=" * 60)
+    print("⚠️  Interrupt signal received. Cleaning up and exiting gracefully...")
+    print("=" * 60)
+    _should_exit = True
+    # Allow some time for cleanup
+    sys.exit(1)
+
+# Register signal handlers
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
 
 
 class Color:
@@ -65,6 +83,8 @@ class KleboscopeOrchestrator:
         self.logger = None
         self.user_output_dir = None
         self.log_file = None
+        self.temp_dirs: Set[str] = set()  # Track temp dirs for cleanup
+        atexit.register(self._cleanup_temp_dirs)
 
         self.output_dirs = {
             'qc': 'fasta_qc_results',
@@ -72,7 +92,8 @@ class KleboscopeOrchestrator:
             'kaptive': 'kaptive_results',
             'abricate': 'abricate_results',
             'amr': 'klebo_amrfinder_results',
-            'summary': 'KLEBOSCOPE_ULTIMATE_REPORTS'
+            'summary': 'KLEBOSCOPE_ULTIMATE_GENE_CENTRIC_REPORTS',
+            'sample_centric': 'KLEBOSCOPE_ULTIMATE_SAMPLE_CENTRIC_REPORTS'
         }
 
         self.summary_files = {
@@ -97,13 +118,39 @@ class KleboscopeOrchestrator:
             'klebo_ecoh_summary_report.html': ('abricate_results', 'klebo_ecoh_summary_report.html')
         }
 
+        # Sample-centric reporter expects additional files (e.g., TSV summaries)
+        self.sample_centric_summary_files = {
+            'klebo_amrfinder_summary.tsv': ('klebo_amrfinder_results', 'klebo_amrfinder_summary.tsv'),
+            'klebo_amrfinder_statistics_summary.tsv': ('klebo_amrfinder_results', 'klebo_amrfinder_statistics_summary.tsv'),
+            'mutation_summary.tsv': ('klebo_amrfinder_results', 'mutation_summary.tsv'),
+            'klebo_kaptive_summary.tsv': ('kaptive_results', 'klebo_kaptive_summary.tsv'),
+            'mlst_summary.tsv': ('mlst_results', 'mlst_summary.tsv'),
+            'klebo_fasta_qc_summary.tsv': ('fasta_qc_results', 'klebo_fasta_qc_summary.tsv'),
+        }
+        # Add ABRicate TSV files
+        abricate_tsv_files = [
+            'klebo_card_abricate_summary.tsv',
+            'klebo_resfinder_abricate_summary.tsv',
+            'klebo_vfdb_abricate_summary.tsv',
+            'klebo_argannot_abricate_summary.tsv',
+            'klebo_megares_abricate_summary.tsv',
+            'klebo_ecoli_vf_abricate_summary.tsv',
+            'klebo_bacmet2_abricate_summary.tsv',
+            'klebo_plasmidfinder_abricate_summary.tsv',
+            'klebo_ncbi_abricate_summary.tsv',
+            'klebo_ecoh_abricate_summary.tsv'
+        ]
+        for fname in abricate_tsv_files:
+            self.sample_centric_summary_files[fname] = ('abricate_results', fname)
+
         self.module_subtitles = {
             'QC': 'Sequence Quality Control & Statistics',
             'MLST': 'Multi-Locus Sequence Typing',
             'Kaptive': 'K/O Locus Typing',
             'ABRicate': 'Comprehensive Resistance & Virulence Screening',
             'AMR': 'Antimicrobial Resistance Gene Detection',
-            'Ultimate Reporter': 'Gene‑centric Integrated Analysis'
+            'Ultimate Reporter': 'Gene‑centric Integrated Analysis',
+            'Sample Centric Reporter': 'Isolate‑centric Interactive Analysis'
         }
 
     def setup_colors(self):
@@ -145,6 +192,18 @@ class KleboscopeOrchestrator:
 
     def print_command(self, command: str):
         print(f"{Color.DIM}{Color.WHITE}  $ {command}{Color.RESET}")
+
+    def _cleanup_temp_dirs(self):
+        """Remove all temporary directories on exit."""
+        if self.temp_dirs:
+            for td in self.temp_dirs:
+                try:
+                    shutil.rmtree(td, ignore_errors=True)
+                    if self.logger:
+                        self.logger.info(f"Cleaned up temp dir: {td}")
+                except Exception as e:
+                    if self.logger:
+                        self.logger.warning(f"Could not remove temp dir {td}: {e}")
 
     def _get_scientific_quotes(self):
         return [
@@ -266,16 +325,24 @@ class KleboscopeOrchestrator:
 
     def run_module_in_temp(self, module_name: str, fasta_files: List[Path],
                            cmd_str: str, result_subdir: str = None) -> Tuple[bool, str]:
+        global _should_exit
+        if _should_exit:
+            return False, "Execution interrupted by user."
+
         module_orig = self.base_dir / "modules" / module_name
         if not module_orig.exists():
             return False, f"Module directory not found: {module_orig}"
 
         temp_dir = tempfile.mkdtemp(prefix=f"kleboscope_{module_name}_")
+        self.temp_dirs.add(temp_dir)
         self.logger.info(f"Temporary directory for {module_name}: {temp_dir}")
 
         try:
+            # Copy module
             shutil.copytree(module_orig, Path(temp_dir) / module_name, dirs_exist_ok=True)
             module_work_dir = Path(temp_dir) / module_name
+
+            # Copy fasta files
             for f in fasta_files:
                 shutil.copy2(f, module_work_dir / f.name)
 
@@ -283,16 +350,21 @@ class KleboscopeOrchestrator:
             pattern = self.get_file_pattern(fasta_files)
             self.logger.info(f"Running {module_name} analysis with pattern: {pattern}")
 
+            # Run the command
             result = subprocess.run(cmd_str, shell=True, cwd=module_work_dir, capture_output=True, text=True)
             if result.stdout:
                 self.logger.info(f"STDOUT:\n{result.stdout}")
             if result.stderr:
                 self.logger.info(f"STDERR:\n{result.stderr}")
 
+            if _should_exit:
+                return False, "Execution interrupted after module completion."
+
             if result.returncode != 0:
                 self.logger.error(f"{module_name} failed with return code {result.returncode}")
                 return False, f"{module_name} failed with return code {result.returncode}"
 
+            # Copy results
             if result_subdir:
                 src = module_work_dir / result_subdir
                 if src.exists():
@@ -312,6 +384,7 @@ class KleboscopeOrchestrator:
         finally:
             if not self.keep_temp:
                 shutil.rmtree(temp_dir, ignore_errors=True)
+                self.temp_dirs.discard(temp_dir)
                 self.logger.info(f"Removed temporary directory: {temp_dir}")
 
     def run_qc(self, fasta_files: List[Path], output_dir: Path, threads: int) -> Tuple[bool, str]:
@@ -327,10 +400,10 @@ class KleboscopeOrchestrator:
     def run_kaptive(self, fasta_files: List[Path], output_dir: Path, threads: int) -> Tuple[bool, str]:
         pattern = self.get_file_pattern(fasta_files)
         cmd = f"python klebo_kaptive.py -i '{pattern}' -o {self.output_dirs['kaptive']}"
-        return self.run_module_in_temp("kleb_serotype_module", fasta_files, cmd, self.output_dirs['kaptive'])
+        return self.run_module_in_temp("kleb_kaptive_module", fasta_files, cmd, self.output_dirs['kaptive'])
 
     def run_abricate(self, fasta_files: List[Path], output_dir: Path, threads: int,
-                     min_id: Optional[float] = None, min_cov: Optional[float] = None) -> Tuple[bool, str]:
+                    min_id: Optional[float] = None, min_cov: Optional[float] = None) -> Tuple[bool, str]:
         pattern = self.get_file_pattern(fasta_files)
         cmd = f"python kleb_abricate_module.py '{pattern}'"
         if min_id is not None:
@@ -353,10 +426,11 @@ class KleboscopeOrchestrator:
         return self.run_module_in_temp("kleb_amr_module", fasta_files, cmd, "klebo_amrfinder_results")
 
     def run_summary(self, output_dir: Path) -> Tuple[bool, str]:
-        summary_module = self.base_dir / "modules" / "kleb_summary_module"
+        summary_module = self.base_dir / "modules" / "kleb_gene_centric_module"
         if not summary_module.exists():
             return False, f"Summary module not found: {summary_module}"
 
+        # Clean old HTML files
         for html in summary_module.glob("*.html"):
             html.unlink()
 
@@ -376,8 +450,8 @@ class KleboscopeOrchestrator:
         if missing > 0:
             self.logger.warning(f"Copied {copied} files, {missing} missing. Some analysis may be incomplete.")
 
-        self.logger.info("Running ultimate reporter...")
-        cmd = [sys.executable, str(summary_module / "kleboscope_ultimate_reporter.py"), "-i", "."]
+        self.logger.info("Running gene‑centric ultimate reporter...")
+        cmd = [sys.executable, str(summary_module / "kleboscope_ultimate_gene_centric_reporter.py"), "-i", "."]
         result = subprocess.run(cmd, cwd=summary_module, capture_output=True, text=True)
         if result.stdout:
             self.logger.info(result.stdout)
@@ -390,20 +464,76 @@ class KleboscopeOrchestrator:
             if summary_target.exists():
                 shutil.rmtree(summary_target)
             shutil.copytree(summary_source, summary_target)
-            self.logger.info(f"Ultimate reports copied to: {summary_target}")
+            self.logger.info(f"Gene‑centric reports copied to: {summary_target}")
             files = list(summary_target.glob("*"))
             html_count = len([f for f in files if f.suffix == '.html'])
             json_count = len([f for f in files if f.suffix == '.json'])
             csv_count = len([f for f in files if f.suffix == '.csv'])
             self.logger.info(f"📊 {html_count} HTML, {json_count} JSON, {csv_count} CSV files")
         else:
-            self.logger.warning(f"Ultimate reports directory not found: {summary_source}")
+            self.logger.warning(f"Gene‑centric reports directory not found: {summary_source}")
 
-        return result.returncode == 0, "Summary completed"
+        return result.returncode == 0, "Gene‑centric summary completed"
+
+    def run_sample_centric_reporter(self, output_dir: Path) -> Tuple[bool, str]:
+        """Copy summary files and run the sample‑centric reporter."""
+        sample_module = self.base_dir / "modules" / "kleb_sample_centric_module"
+        if not sample_module.exists():
+            return False, f"Sample‑centric module not found: {sample_module}"
+
+        # Clean old HTML and JSON files
+        for f in sample_module.glob("*.html"):
+            f.unlink()
+        for f in sample_module.glob("*.json"):
+            f.unlink()
+
+        # Copy all required summary files (from summary_files and sample_centric_summary_files)
+        all_files = {}
+        all_files.update(self.summary_files)
+        all_files.update(self.sample_centric_summary_files)
+
+        copied = 0
+        missing = 0
+        for target_name, (subdir, filename) in all_files.items():
+            source = output_dir / subdir / filename
+            if source.exists():
+                shutil.copy2(source, sample_module / target_name)
+                copied += 1
+            else:
+                missing += 1
+
+        if missing > 0:
+            self.logger.warning(f"Copied {copied} files, {missing} missing for sample‑centric reporter.")
+
+        self.logger.info("Running sample‑centric ultimate reporter...")
+        cmd = [sys.executable, str(sample_module / "kleboscope_ultimate_sample_centric_report.py"), "-i", "."]
+        result = subprocess.run(cmd, cwd=sample_module, capture_output=True, text=True)
+        if result.stdout:
+            self.logger.info(result.stdout)
+        if result.stderr:
+            self.logger.info(result.stderr)
+
+        sample_source = sample_module / self.output_dirs['sample_centric']
+        sample_target = output_dir / self.output_dirs['sample_centric']
+        if sample_source.exists():
+            if sample_target.exists():
+                shutil.rmtree(sample_target)
+            shutil.copytree(sample_source, sample_target)
+            self.logger.info(f"Sample‑centric reports copied to: {sample_target}")
+            files = list(sample_target.glob("*"))
+            html_count = len([f for f in files if f.suffix == '.html'])
+            json_count = len([f for f in files if f.suffix == '.json'])
+            csv_count = len([f for f in files if f.suffix == '.csv'])
+            self.logger.info(f"📊 {html_count} HTML, {json_count} JSON, {csv_count} CSV files")
+        else:
+            self.logger.warning(f"Sample‑centric reports directory not found: {sample_source}")
+
+        return result.returncode == 0, "Sample‑centric summary completed"
 
     def run_complete_analysis(self, input_path: str, output_dir: str, threads: int = 1,
                               skip_modules: Dict[str, bool] = None,
                               skip_summary: bool = False,
+                              skip_sample_centric: bool = False,
                               update_amr_db_only: bool = False,
                               force_update_amr: bool = False,
                               amr_min_identity: Optional[float] = None,
@@ -433,6 +563,7 @@ class KleboscopeOrchestrator:
             return
         self.print_success(f"Starting analysis of {len(fasta_files)} K. pneumoniae samples")
 
+        # Create output subdirectories
         for subdir in self.output_dirs.values():
             (output_path / subdir).mkdir(exist_ok=True)
 
@@ -443,7 +574,8 @@ class KleboscopeOrchestrator:
             ("Kaptive", not skip_modules.get('kaptive', False)),
             ("ABRicate", not skip_modules.get('abricate', False)),
             ("AMR", not skip_modules.get('amr', False)),
-            ("Ultimate Reporter", not skip_summary),
+            ("Gene‑centric Reporter", not skip_summary),
+            ("Sample‑centric Reporter", not skip_sample_centric),
         ]
         for analysis, enabled in plan:
             if enabled:
@@ -462,6 +594,7 @@ class KleboscopeOrchestrator:
             print(f"   ABRicate min coverage: {abricate_min_cov}")
         print()
 
+        # First batch: QC, MLST, Kaptive
         tasks = []
         if not skip_modules.get('qc', False):
             tasks.append(("QC", self.run_qc, (fasta_files, output_path, threads)))
@@ -495,6 +628,7 @@ class KleboscopeOrchestrator:
         else:
             self.print_info("No analyses in first batch (all skipped).")
 
+        # ABRicate
         if not skip_modules.get('abricate', False):
             self.print_header("ABRICATE ANALYSIS", self.module_subtitles['ABRicate'])
             success, output = self.run_abricate(fasta_files, output_path, threads,
@@ -507,6 +641,7 @@ class KleboscopeOrchestrator:
         else:
             self.print_info("Skipping ABRicate analysis.")
 
+        # AMR
         if not skip_modules.get('amr', False):
             self.print_header("AMR ANALYSIS", self.module_subtitles['AMR'])
             success, output = self.run_amr(fasta_files, output_path, threads,
@@ -521,16 +656,27 @@ class KleboscopeOrchestrator:
         else:
             self.print_info("Skipping AMR analysis.")
 
+        # Gene‑centric summary
         if not skip_summary:
-            self.print_info("Copying files to summary module and running ultimate reporter...")
-            self.print_header("ULTIMATE REPORTER", self.module_subtitles['Ultimate Reporter'])
+            self.print_header("ULTIMATE REPORTER (Gene‑Centric)", self.module_subtitles['Ultimate Reporter'])
             success, output = self.run_summary(output_path)
             if success:
-                self.print_success("✅ Ultimate reporter completed")
+                self.print_success("✅ Gene‑centric reporter completed")
             else:
-                self.print_warning("Ultimate reporter had issues")
+                self.print_warning("Gene‑centric reporter had issues")
             self.display_random_quote()
 
+        # Sample‑centric summary
+        if not skip_sample_centric:
+            self.print_header("SAMPLE‑CENTRIC REPORTER", self.module_subtitles['Sample Centric Reporter'])
+            success, output = self.run_sample_centric_reporter(output_path)
+            if success:
+                self.print_success("✅ Sample‑centric reporter completed")
+            else:
+                self.print_warning("Sample‑centric reporter had issues")
+            self.display_random_quote()
+
+        # Final report
         analysis_time = datetime.now() - start_time
         self.print_header("ANALYSIS COMPLETE", f"Time elapsed: {str(analysis_time).split('.')[0]}")
         self.print_success(f"🎉 Analysis complete! Results in: {output_path}")
@@ -632,7 +778,8 @@ Citation: Beckley, B., et al. Kleboscope: a gene‑centric, species‑optimized 
         print(f"  {Color.GREEN}--skip-kaptive{Color.RESET}          Skip Kaptive analysis")
         print(f"  {Color.GREEN}--skip-abricate{Color.RESET}         Skip ABRicate analysis")
         print(f"  {Color.GREEN}--skip-amr{Color.RESET}              Skip AMR analysis")
-        print(f"  {Color.GREEN}--skip-summary{Color.RESET}          Skip ultimate reporter generation\n")
+        print(f"  {Color.GREEN}--skip-summary{Color.RESET}          Skip gene‑centric ultimate reporter")
+        print(f"  {Color.GREEN}--skip-sample-centric{Color.RESET}   Skip sample‑centric ultimate reporter\n")
         print(f"{Color.BRIGHT_YELLOW}EXAMPLES:{Color.RESET}")
         print(f"  {Color.GREEN}kleboscope -i \"*.fna\" -o results{Color.RESET}")
         print(f"  {Color.GREEN}kleboscope -i \"*.fasta\" -o results --threads 4 --amr-min-identity 0.95 --amr-min-coverage 0.9{Color.RESET}")
@@ -675,7 +822,8 @@ def main():
     parser.add_argument('--skip-kaptive', action='store_true', help='Skip Kaptive analysis')
     parser.add_argument('--skip-abricate', action='store_true', help='Skip ABRicate analysis')
     parser.add_argument('--skip-amr', action='store_true', help='Skip AMR analysis')
-    parser.add_argument('--skip-summary', action='store_true', help='Skip ultimate reporter generation')
+    parser.add_argument('--skip-summary', action='store_true', help='Skip gene‑centric ultimate reporter')
+    parser.add_argument('--skip-sample-centric', action='store_true', help='Skip sample‑centric ultimate reporter')
 
     parser.add_argument('--update-amr-db', action='store_true', help='Manually update AMRfinderPlus database incrementally and exit')
     parser.add_argument('--force-update-amr-db', action='store_true', help='Force full AMRfinderPlus database update (overwrites old) and exit')
@@ -708,6 +856,7 @@ def main():
         threads=args.threads,
         skip_modules=skip_modules,
         skip_summary=args.skip_summary,
+        skip_sample_centric=args.skip_sample_centric,
         amr_min_identity=args.amr_min_identity,
         amr_min_coverage=args.amr_min_coverage,
         amr_skip_mutations=args.skip_amr_mutations,
