@@ -426,109 +426,145 @@ class KleboscopeOrchestrator:
         return self.run_module_in_temp("kleb_amr_module", fasta_files, cmd, "klebo_amrfinder_results")
 
     def run_summary(self, output_dir: Path) -> Tuple[bool, str]:
-        summary_module = self.base_dir / "modules" / "kleb_gene_centric_module"
-        if not summary_module.exists():
-            return False, f"Summary module not found: {summary_module}"
+        global _should_exit
+        if _should_exit:
+            return False, "Execution interrupted by user."
 
-        # Clean old HTML files
-        for html in summary_module.glob("*.html"):
-            html.unlink()
+        summary_module_orig = self.base_dir / "modules" / "kleb_gene_centric_module"
+        if not summary_module_orig.exists():
+            return False, f"Summary module not found: {summary_module_orig}"
 
-        copied = 0
-        missing = 0
-        for target_name, (subdir, filename) in self.summary_files.items():
-            if subdir:
-                source = output_dir / subdir / filename
-            else:
-                source = output_dir / filename
-            if source.exists():
-                shutil.copy2(source, summary_module / target_name)
-                copied += 1
-            else:
-                missing += 1
+        # ✅ Create temporary directory (like other modules)
+        temp_dir = tempfile.mkdtemp(prefix="kleboscope_summary_")
+        self.temp_dirs.add(temp_dir)
+        self.logger.info(f"Temporary directory for summary: {temp_dir}")
 
-        if missing > 0:
-            self.logger.warning(f"Copied {copied} files, {missing} missing. Some analysis may be incomplete.")
+        try:
+            # Copy module to temp
+            shutil.copytree(summary_module_orig, Path(temp_dir) / "kleb_gene_centric_module", dirs_exist_ok=True)
+            summary_work_dir = Path(temp_dir) / "kleb_gene_centric_module"
 
-        self.logger.info("Running gene‑centric ultimate reporter...")
-        cmd = [sys.executable, str(summary_module / "kleboscope_ultimate_gene_centric_reporter.py"), "-i", "."]
-        result = subprocess.run(cmd, cwd=summary_module, capture_output=True, text=True)
-        if result.stdout:
-            self.logger.info(result.stdout)
-        if result.stderr:
-            self.logger.info(result.stderr)
+            # Copy summary files
+            copied = 0
+            missing = 0
+            for target_name, (subdir, filename) in self.summary_files.items():
+                if subdir:
+                    source = output_dir / subdir / filename
+                else:
+                    source = output_dir / filename
+                if source.exists():
+                    shutil.copy2(source, summary_work_dir / target_name)
+                    copied += 1
+                else:
+                    missing += 1
 
-        summary_source = summary_module / self.output_dirs['summary']
-        summary_target = output_dir / self.output_dirs['summary']
-        if summary_source.exists():
-            if summary_target.exists():
-                shutil.rmtree(summary_target)
-            shutil.copytree(summary_source, summary_target)
-            self.logger.info(f"Gene‑centric reports copied to: {summary_target}")
-            files = list(summary_target.glob("*"))
-            html_count = len([f for f in files if f.suffix == '.html'])
-            json_count = len([f for f in files if f.suffix == '.json'])
-            csv_count = len([f for f in files if f.suffix == '.csv'])
-            self.logger.info(f"📊 {html_count} HTML, {json_count} JSON, {csv_count} CSV files")
-        else:
-            self.logger.warning(f"Gene‑centric reports directory not found: {summary_source}")
+            if missing > 0:
+                self.logger.warning(f"Copied {copied} files, {missing} missing.")
 
-        return result.returncode == 0, "Gene‑centric summary completed"
+            # Run reporter in temp dir
+            self.logger.info("Running gene‑centric ultimate reporter...")
+            cmd = [sys.executable, str(summary_work_dir / "kleboscope_ultimate_gene_centric_reporter.py"), "-i", "."]
+            result = subprocess.run(cmd, cwd=summary_work_dir, capture_output=True, text=True)
+
+            # Copy results back
+            summary_source = summary_work_dir / self.output_dirs['summary']
+            summary_target = output_dir / self.output_dirs['summary']
+            if summary_source.exists():
+                if summary_target.exists():
+                    shutil.rmtree(summary_target)
+                shutil.copytree(summary_source, summary_target)
+                self.logger.info(f"Gene‑centric reports copied to: {summary_target}")
+
+            return result.returncode == 0, "Gene‑centric summary completed"
+
+        except Exception as e:
+            self.logger.error(f"Exception in summary: {e}\n{traceback.format_exc()}")
+            return False, f"Exception in summary: {e}"
+        finally:
+            if not self.keep_temp:
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                self.temp_dirs.discard(temp_dir)
+                self.logger.info(f"Removed temporary directory: {temp_dir}")
 
     def run_sample_centric_reporter(self, output_dir: Path) -> Tuple[bool, str]:
-        """Copy summary files and run the sample‑centric reporter."""
-        sample_module = self.base_dir / "modules" / "kleb_sample_centric_module"
-        if not sample_module.exists():
-            return False, f"Sample‑centric module not found: {sample_module}"
+        """Copy summary files and run the sample‑centric reporter in a temporary directory."""
+        global _should_exit
+        if _should_exit:
+            return False, "Execution interrupted by user."
 
-        # Clean old HTML and JSON files
-        for f in sample_module.glob("*.html"):
-            f.unlink()
-        for f in sample_module.glob("*.json"):
-            f.unlink()
+        sample_module_orig = self.base_dir / "modules" / "kleb_sample_centric_module"
+        if not sample_module_orig.exists():
+            return False, f"Sample‑centric module not found: {sample_module_orig}"
 
-        # Copy all required summary files (from summary_files and sample_centric_summary_files)
-        all_files = {}
-        all_files.update(self.summary_files)
-        all_files.update(self.sample_centric_summary_files)
+        # ✅ Create temporary directory (like other modules)
+        temp_dir = tempfile.mkdtemp(prefix="kleboscope_sample_centric_")
+        self.temp_dirs.add(temp_dir)
+        self.logger.info(f"Temporary directory for sample‑centric reporter: {temp_dir}")
 
-        copied = 0
-        missing = 0
-        for target_name, (subdir, filename) in all_files.items():
-            source = output_dir / subdir / filename
-            if source.exists():
-                shutil.copy2(source, sample_module / target_name)
-                copied += 1
+        try:
+            # Copy module to temp
+            shutil.copytree(sample_module_orig, Path(temp_dir) / "kleb_sample_centric_module", dirs_exist_ok=True)
+            sample_work_dir = Path(temp_dir) / "kleb_sample_centric_module"
+
+            # Copy all required summary files (from summary_files and sample_centric_summary_files)
+            all_files = {}
+            all_files.update(self.summary_files)
+            all_files.update(self.sample_centric_summary_files)
+
+            copied = 0
+            missing = 0
+            for target_name, (subdir, filename) in all_files.items():
+                if subdir:
+                    source = output_dir / subdir / filename
+                else:
+                    source = output_dir / filename
+                if source.exists():
+                    shutil.copy2(source, sample_work_dir / target_name)
+                    copied += 1
+                else:
+                    missing += 1
+
+            if missing > 0:
+                self.logger.warning(f"Copied {copied} files, {missing} missing for sample‑centric reporter.")
+
+            # Run sample‑centric reporter in temp dir
+            self.logger.info("Running sample‑centric ultimate reporter...")
+            cmd = [sys.executable, str(sample_work_dir / "kleboscope_ultimate_sample_centric_report.py"), "-i", "."]
+            result = subprocess.run(cmd, cwd=sample_work_dir, capture_output=True, text=True)
+            if result.stdout:
+                self.logger.info(result.stdout)
+            if result.stderr:
+                self.logger.info(result.stderr)
+
+            if _should_exit:
+                return False, "Execution interrupted after reporter completion."
+
+            # Copy results back to output directory
+            sample_source = sample_work_dir / self.output_dirs['sample_centric']
+            sample_target = output_dir / self.output_dirs['sample_centric']
+            if sample_source.exists():
+                if sample_target.exists():
+                    shutil.rmtree(sample_target)
+                shutil.copytree(sample_source, sample_target)
+                self.logger.info(f"Sample‑centric reports copied to: {sample_target}")
+                files = list(sample_target.glob("*"))
+                html_count = len([f for f in files if f.suffix == '.html'])
+                json_count = len([f for f in files if f.suffix == '.json'])
+                csv_count = len([f for f in files if f.suffix == '.csv'])
+                self.logger.info(f"📊 {html_count} HTML, {json_count} JSON, {csv_count} CSV files")
             else:
-                missing += 1
+                self.logger.warning(f"Sample‑centric reports directory not found: {sample_source}")
 
-        if missing > 0:
-            self.logger.warning(f"Copied {copied} files, {missing} missing for sample‑centric reporter.")
+            return result.returncode == 0, "Sample‑centric summary completed"
 
-        self.logger.info("Running sample‑centric ultimate reporter...")
-        cmd = [sys.executable, str(sample_module / "kleboscope_ultimate_sample_centric_report.py"), "-i", "."]
-        result = subprocess.run(cmd, cwd=sample_module, capture_output=True, text=True)
-        if result.stdout:
-            self.logger.info(result.stdout)
-        if result.stderr:
-            self.logger.info(result.stderr)
-
-        sample_source = sample_module / self.output_dirs['sample_centric']
-        sample_target = output_dir / self.output_dirs['sample_centric']
-        if sample_source.exists():
-            if sample_target.exists():
-                shutil.rmtree(sample_target)
-            shutil.copytree(sample_source, sample_target)
-            self.logger.info(f"Sample‑centric reports copied to: {sample_target}")
-            files = list(sample_target.glob("*"))
-            html_count = len([f for f in files if f.suffix == '.html'])
-            json_count = len([f for f in files if f.suffix == '.json'])
-            csv_count = len([f for f in files if f.suffix == '.csv'])
-            self.logger.info(f"📊 {html_count} HTML, {json_count} JSON, {csv_count} CSV files")
-        else:
-            self.logger.warning(f"Sample‑centric reports directory not found: {sample_source}")
-
-        return result.returncode == 0, "Sample‑centric summary completed"
+        except Exception as e:
+            self.logger.error(f"Exception in sample‑centric reporter: {e}\n{traceback.format_exc()}")
+            return False, f"Exception in sample‑centric reporter: {e}"
+        finally:
+            if not self.keep_temp:
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                self.temp_dirs.discard(temp_dir)
+                self.logger.info(f"Removed temporary directory: {temp_dir}")
 
     def run_complete_analysis(self, input_path: str, output_dir: str, threads: int = 1,
                               skip_modules: Dict[str, bool] = None,
