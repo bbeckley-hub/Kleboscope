@@ -1,11 +1,20 @@
 #!/usr/bin/env python3
 """
-Kleboscope Main Orchestrator – Parallel Execution with Scientific Quotes
-Complete K. pneumoniae typing & resistance pipeline
+Kleboscope Main Orchestrator - Complete K. pneumoniae Typing Pipeline
+Version: 1.3.0
+
+Runs all analysis and reporting modules in isolated temporary directories and
+consolidates the final deliverables into Kleboscope_final_report/. Supports
+HPC, Docker, Singularity, and conda installations via environment overrides
+and user-local database caches.
+
+Modules:
+    analysis  : qc_module, mlst_module, kaptive_module, abricate_module,
+                amr_module, mge_module
+    reporting : gene_centric_module, sample_centric_module
+
 Author: Brown Beckley <brownbeckley94@gmail.com>
-Version: 1.2.0
-Date: 2026-07-28
-Affiliation: University of Ghana Medical School – Department of Medical Biochemistry
+Affiliation: University of Ghana Medical School - Department of Medical Biochemistry
 """
 
 import os
@@ -15,41 +24,30 @@ import argparse
 import subprocess
 import shutil
 import tempfile
-import random
 import logging
 import traceback
 import signal
 import atexit
+import random
+import urllib.request
+import zipfile
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Tuple, Optional, Set
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Dict, List, Optional, Set, Tuple
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 
-# Global flag for graceful shutdown
-_should_exit = False
-
-def signal_handler(sig, frame):
-    global _should_exit
-    print("\n" + "=" * 60)
-    print("⚠️  Interrupt signal received. Cleaning up and exiting gracefully...")
-    print("=" * 60)
-    _should_exit = True
-    # Allow some time for cleanup
-    sys.exit(1)
-
-# Register signal handlers
-signal.signal(signal.SIGINT, signal_handler)
-signal.signal(signal.SIGTERM, signal_handler)
+AUTHOR_NAME = "Brown Beckley"
+AUTHOR_EMAIL = "brownbeckley94@gmail.com"
+AUTHOR_AFFILIATION = (
+    "University of Ghana Medical School - Department of Medical Biochemistry"
+)
 
 
 class Color:
-    """ANSI color codes for coloured output."""
     RESET = '\033[0m'
     BOLD = '\033[1m'
     DIM = '\033[2m'
-    BLACK = '\033[30m'
     RED = '\033[31m'
     GREEN = '\033[32m'
     YELLOW = '\033[33m'
@@ -57,7 +55,6 @@ class Color:
     MAGENTA = '\033[35m'
     CYAN = '\033[36m'
     WHITE = '\033[37m'
-    BRIGHT_BLACK = '\033[90m'
     BRIGHT_RED = '\033[91m'
     BRIGHT_GREEN = '\033[92m'
     BRIGHT_YELLOW = '\033[93m'
@@ -67,838 +64,1850 @@ class Color:
     BRIGHT_WHITE = '\033[97m'
 
 
-class KleboscopeOrchestrator:
-    """Kleboscope orchestrator with temporary directories and resource control."""
+class ColoredHelpFormatter(argparse.HelpFormatter):
+    """ANSI-aware help formatter for Kleboscope.
 
-    def __init__(self):
+    The parser description and epilog are pre-formatted strings containing
+    ANSI escape sequences, so they are emitted verbatim instead of being
+    re-wrapped (textwrap counts invisible escape bytes toward line width,
+    which scattered the text across wrong columns). Argument help strings
+    contain no escape sequences, so they keep the standard argparse
+    wrapping. Option names are colored only after padding is applied,
+    keeping the option/description columns aligned.
+    """
+
+    def _fill_text(self, text, width, indent):
+        return ''.join(indent + line + '\n' for line in text.splitlines())
+
+    def _format_usage(self, usage, actions, groups, prefix):
+        text = super()._format_usage(usage, actions, groups, prefix)
+        if text.startswith('usage: '):
+            text = text[len('usage: '):]
+            return f"{Color.BOLD}{Color.GREEN}usage:{Color.RESET} {text}"
+        return text
+
+    def start_section(self, heading):
+        super().start_section(
+            f"{Color.BOLD}{Color.BRIGHT_GREEN}{heading}{Color.RESET}")
+
+    def _format_action(self, action):
+        help_position = min(self._action_max_length + 2,
+                            self._max_help_position)
+        help_width = max(self._width - help_position, 11)
+        action_width = help_position - self._current_indent - 2
+        header = self._format_action_invocation(action)
+        colored_header = f"{Color.BRIGHT_CYAN}{header}{Color.RESET}"
+        indent = ' ' * self._current_indent
+
+        if not action.help:
+            return f"{indent}{colored_header}\n"
+
+        help_lines = self._split_lines(self._expand_help(action), help_width)
+        if len(header) <= action_width:
+            pad = action_width - len(header) + 2
+            out = [f"{indent}{colored_header}{' ' * pad}{help_lines[0]}"]
+        else:
+            out = [f"{indent}{colored_header}",
+                   f"{' ' * help_position}{help_lines[0]}"]
+        out.extend(f"{' ' * help_position}{line}" for line in help_lines[1:])
+        for subaction in self._iter_indented_subactions(action):
+            out.append(self._format_action(subaction))
+        return '\n'.join(out) + '\n'
+
+
+DIR_QC = "fasta_qc_results"
+DIR_MLST = "mlst_results"
+DIR_KAPTIVE = "kaptive_results"
+DIR_ABRICATE = "abricate_results"
+DIR_AMR = "amrfinder_results"
+DIR_MGE = "mge_results"
+DIR_GENE_CENTRIC = "KLEBOSCOPE_ULTIMATE_GENE_CENTRIC_REPORTS"
+DIR_SAMPLE_CENTRIC = "KLEBOSCOPE_ULTIMATE_SAMPLE_CENTRIC_REPORTS"
+DIR_FINAL = "Kleboscope_final_report"
+
+ALL_MODULE_DIRS = [DIR_QC, DIR_MLST, DIR_KAPTIVE, DIR_ABRICATE, DIR_AMR, DIR_MGE]
+
+CITATION_LINES = [
+    "Beckley B, et al. Kleboscope: a gene-centric, species-optimized",
+    "computational pipeline for Klebsiella pneumoniae genomic surveillance.",
+    "https://github.com/bbeckley-hub/kleboscope",
+]
+
+
+class KleboscopeOrchestrator:
+    """Coordinates all Kleboscope analysis and reporting modules.
+
+    Runs analysis modules in isolated temporary directories, collects
+    batch summaries into a consolidated final report, and prunes
+    intermediate files according to the selected report level.
+
+    Full subprocess stdout/stderr is captured into the run log. On
+    non-zero exit codes the complete output is also echoed to the
+    console so failures are actionable without opening the log.
+    """
+
+    def __init__(self, quiet: bool = False, keep_temp: bool = False,
+                 tmpdir: Optional[str] = None):
         self.base_dir = Path(__file__).parent
-        self.setup_colors()
-        self.quotes = self._get_scientific_quotes()
+        self.quiet = quiet
+        self.keep_temp = keep_temp
+        self.logger: Optional[logging.Logger] = None
+        self.user_output_dir: Optional[Path] = None
+        self.temp_dirs: List[str] = []
+        self.module_times: Dict[str, float] = {}
+        self.running = True
+        self.report_level = 'summary'
+        self.warnings: List[str] = []
+        self.errors: List[str] = []
+
+        if tmpdir:
+            self.tmp_root = Path(tmpdir)
+            self.tmp_root.mkdir(parents=True, exist_ok=True)
+        else:
+            self.tmp_root = None
+
+        self.quotes = self._get_quotes()
         self.quote_colors = [
             Color.BRIGHT_CYAN, Color.BRIGHT_GREEN, Color.BRIGHT_YELLOW,
-            Color.BRIGHT_MAGENTA, Color.BRIGHT_BLUE, Color.BRIGHT_RED,
-            Color.CYAN, Color.GREEN, Color.YELLOW, Color.MAGENTA
+            Color.BRIGHT_MAGENTA, Color.BRIGHT_BLUE,
         ]
-        self.keep_temp = False
-        self.logger = None
-        self.user_output_dir = None
-        self.log_file = None
-        self.temp_dirs: Set[str] = set()  # Track temp dirs for cleanup
+        self.module_subtitles = {
+            'qc': 'Sequence Quality Control and Species Confirmation',
+            'mlst': 'Multi-Locus Sequence Typing',
+            'kaptive': 'K/O Locus Typing',
+            'abricate': 'Comprehensive Resistance and Virulence Screening',
+            'amr': 'AMRFinderPlus Gene Detection with Point Mutations',
+            'mge': 'Mobile Genetic Element Profiling',
+            'gene_centric': 'Gene-Centric Integrated Report',
+            'sample_centric': 'Isolate-Centric Interactive Report',
+        }
+        self.output_dirs = {
+            'qc': DIR_QC,
+            'mlst': DIR_MLST,
+            'kaptive': DIR_KAPTIVE,
+            'abricate': DIR_ABRICATE,
+            'amr': DIR_AMR,
+            'mge': DIR_MGE,
+        }
+
+        signal.signal(signal.SIGINT, self._signal_handler)
+        signal.signal(signal.SIGTERM, self._signal_handler)
         atexit.register(self._cleanup_temp_dirs)
 
-        self.output_dirs = {
-            'qc': 'fasta_qc_results',
-            'mlst': 'mlst_results',
-            'kaptive': 'kaptive_results',
-            'abricate': 'abricate_results',
-            'amr': 'klebo_amrfinder_results',
-            'summary': 'KLEBOSCOPE_ULTIMATE_GENE_CENTRIC_REPORTS',
-            'sample_centric': 'KLEBOSCOPE_ULTIMATE_SAMPLE_CENTRIC_REPORTS'
-        }
-
-        self.summary_files = {
-            'mlst_summary.html': ('mlst_results', 'mlst_summary.html'),
-            'mlst_summary.tsv': ('mlst_results', 'mlst_summary.tsv'),
-            'mlst_summary.json': ('mlst_results', 'mlst_summary.json'),
-            'klebo_fasta_qc_summary.html': ('fasta_qc_results', 'klebo_fasta_qc_summary.html'),
-            'klebo_kaptive_summary.html': ('kaptive_results', 'klebo_kaptive_summary.html'),
-            'klebo_amrfinder_summary_report.html': ('klebo_amrfinder_results', 'klebo_amrfinder_summary_report.html'),
-            'mutation_summary.html': ('klebo_amrfinder_results', 'mutation_summary.html'),
-            'mutation_summary.tsv': ('klebo_amrfinder_results', 'mutation_summary.tsv'),
-            'mutation_master_summary.json': ('klebo_amrfinder_results', 'mutation_master_summary.json'),
-            'klebo_card_summary_report.html': ('abricate_results', 'klebo_card_summary_report.html'),
-            'klebo_ncbi_summary_report.html': ('abricate_results', 'klebo_ncbi_summary_report.html'),
-            'klebo_resfinder_summary_report.html': ('abricate_results', 'klebo_resfinder_summary_report.html'),
-            'klebo_vfdb_summary_report.html': ('abricate_results', 'klebo_vfdb_summary_report.html'),
-            'klebo_argannot_summary_report.html': ('abricate_results', 'klebo_argannot_summary_report.html'),
-            'klebo_megares_summary_report.html': ('abricate_results', 'klebo_megares_summary_report.html'),
-            'klebo_ecoli_vf_summary_report.html': ('abricate_results', 'klebo_ecoli_vf_summary_report.html'),
-            'klebo_bacmet2_summary_report.html': ('abricate_results', 'klebo_bacmet2_summary_report.html'),
-            'klebo_plasmidfinder_summary_report.html': ('abricate_results', 'klebo_plasmidfinder_summary_report.html'),
-            'klebo_ecoh_summary_report.html': ('abricate_results', 'klebo_ecoh_summary_report.html')
-        }
-
-        # Sample-centric reporter expects additional files (e.g., TSV summaries)
-        self.sample_centric_summary_files = {
-            'klebo_amrfinder_summary.tsv': ('klebo_amrfinder_results', 'klebo_amrfinder_summary.tsv'),
-            'klebo_amrfinder_statistics_summary.tsv': ('klebo_amrfinder_results', 'klebo_amrfinder_statistics_summary.tsv'),
-            'mutation_summary.tsv': ('klebo_amrfinder_results', 'mutation_summary.tsv'),
-            'klebo_kaptive_summary.tsv': ('kaptive_results', 'klebo_kaptive_summary.tsv'),
-            'mlst_summary.tsv': ('mlst_results', 'mlst_summary.tsv'),
-            'klebo_fasta_qc_summary.tsv': ('fasta_qc_results', 'klebo_fasta_qc_summary.tsv'),
-        }
-        # Add ABRicate TSV files
-        abricate_tsv_files = [
-            'klebo_card_abricate_summary.tsv',
-            'klebo_resfinder_abricate_summary.tsv',
-            'klebo_vfdb_abricate_summary.tsv',
-            'klebo_argannot_abricate_summary.tsv',
-            'klebo_megares_abricate_summary.tsv',
-            'klebo_ecoli_vf_abricate_summary.tsv',
-            'klebo_bacmet2_abricate_summary.tsv',
-            'klebo_plasmidfinder_abricate_summary.tsv',
-            'klebo_ncbi_abricate_summary.tsv',
-            'klebo_ecoh_abricate_summary.tsv'
-        ]
-        for fname in abricate_tsv_files:
-            self.sample_centric_summary_files[fname] = ('abricate_results', fname)
-
-        self.module_subtitles = {
-            'QC': 'Sequence Quality Control & Statistics',
-            'MLST': 'Multi-Locus Sequence Typing',
-            'Kaptive': 'K/O Locus Typing',
-            'ABRicate': 'Comprehensive Resistance & Virulence Screening',
-            'AMR': 'Antimicrobial Resistance Gene Detection',
-            'Ultimate Reporter': 'Gene‑centric Integrated Analysis',
-            'Sample Centric Reporter': 'Isolate‑centric Interactive Analysis'
-        }
-
-    def setup_colors(self):
-        self.color_info = Color.CYAN
-        self.color_success = Color.BRIGHT_GREEN
-        self.color_warning = Color.BRIGHT_YELLOW
-        self.color_error = Color.BRIGHT_RED
-        self.color_highlight = Color.BRIGHT_CYAN
-        self.color_banner = Color.BRIGHT_MAGENTA
-        self.color_module = Color.BRIGHT_BLUE
-        self.color_sample = Color.GREEN
-        self.color_file = Color.YELLOW
-        self.color_reset = Color.RESET
-
-    def print_color(self, message: str, color: str = Color.RESET, bold: bool = False):
-        style = Color.BOLD if bold else ''
-        print(f"{style}{color}{message}{Color.RESET}")
-
-    def print_header(self, title: str, subtitle: str = ""):
-        print()
-        print(f"{Color.BOLD}{Color.BRIGHT_BLUE}{'='*80}{Color.RESET}")
-        print(f"{Color.BOLD}{Color.BRIGHT_CYAN}{' ' * 20}{title}{Color.RESET}")
-        if subtitle:
-            print(f"{Color.DIM}{Color.WHITE}{' ' * 22}{subtitle}{Color.RESET}")
-        print(f"{Color.BOLD}{Color.BRIGHT_BLUE}{'='*80}{Color.RESET}")
-        print()
-
-    def print_info(self, message: str):
-        print(f"{self.color_info}[INFO]{Color.RESET} {message}")
-
-    def print_success(self, message: str):
-        print(f"{self.color_success}✓{Color.RESET} {message}")
-
-    def print_warning(self, message: str):
-        print(f"{self.color_warning}⚠️{Color.RESET} {message}")
-
-    def print_error(self, message: str):
-        print(f"{self.color_error}✗{Color.RESET} {message}")
-
-    def print_command(self, command: str):
-        print(f"{Color.DIM}{Color.WHITE}  $ {command}{Color.RESET}")
+    # ------------------------------------------------------------------
+    # Signal handling and temp management
+    # ------------------------------------------------------------------
+    def _signal_handler(self, signum, frame):
+        self.print_warning(f"Received signal {signum}. Cleaning up and exiting...")
+        self.running = False
+        self._cleanup_temp_dirs()
+        sys.exit(1)
 
     def _cleanup_temp_dirs(self):
-        """Remove all temporary directories on exit."""
-        if self.temp_dirs:
-            for td in self.temp_dirs:
-                try:
-                    shutil.rmtree(td, ignore_errors=True)
-                    if self.logger:
-                        self.logger.info(f"Cleaned up temp dir: {td}")
-                except Exception as e:
-                    if self.logger:
-                        self.logger.warning(f"Could not remove temp dir {td}: {e}")
+        if self.keep_temp:
+            return
+        for d in list(self.temp_dirs):
+            if d and Path(d).exists():
+                shutil.rmtree(d, ignore_errors=True)
+                if self.logger:
+                    self.logger.info(f"Removed temporary directory: {d}")
+        self.temp_dirs = []
 
-    def _get_scientific_quotes(self):
+    def _mkdtemp(self, prefix: str) -> str:
+        """Create a temp dir honouring --tmpdir, KLEBOSCOPE_TMPDIR, TMPDIR."""
+        if self.tmp_root:
+            return tempfile.mkdtemp(prefix=prefix, dir=str(self.tmp_root))
+        env_tmp = os.environ.get("KLEBOSCOPE_TMPDIR")
+        if env_tmp:
+            Path(env_tmp).mkdir(parents=True, exist_ok=True)
+            return tempfile.mkdtemp(prefix=prefix, dir=env_tmp)
+        return tempfile.mkdtemp(prefix=prefix)
+
+    # ------------------------------------------------------------------
+    # Console helpers
+    # ------------------------------------------------------------------
+    def setup_logging(self, output_dir: Path):
+        log_file = output_dir / "kleboscope_run.log"
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(levelname)s - %(message)s',
+            handlers=[logging.FileHandler(log_file, mode='w')],
+        )
+        self.logger = logging.getLogger("Kleboscope")
+        self.logger.info(f"Kleboscope v{__version__} started")
+        self.logger.info(f"Log file: {log_file}")
+        self.user_output_dir = output_dir
+
+    def print_info(self, m):
+        if not self.quiet:
+            print(f"{Color.CYAN}[INFO]{Color.RESET} {m}")
+        if self.logger:
+            self.logger.info(m)
+
+    def print_success(self, m):
+        if not self.quiet:
+            print(f"{Color.BRIGHT_GREEN}✓{Color.RESET} {m}")
+        if self.logger:
+            self.logger.info(f"SUCCESS: {m}")
+
+    def print_warning(self, m):
+        if not self.quiet:
+            print(f"{Color.BRIGHT_YELLOW}⚠{Color.RESET} {m}")
+        if self.logger:
+            self.logger.warning(m)
+        self.warnings.append(m)
+
+    def print_error(self, m):
+        print(f"{Color.BRIGHT_RED}✗{Color.RESET} {m}")
+        if self.logger:
+            self.logger.error(m)
+        self.errors.append(m)
+
+    def print_header(self, title: str, subtitle: str = ""):
+        if not self.quiet:
+            width = 80
+            print()
+            print(f"{Color.BOLD}{Color.BRIGHT_BLUE}{'=' * width}{Color.RESET}")
+            pad = max(0, (width - len(title)) // 2)
+            print(f"{Color.BOLD}{Color.BRIGHT_CYAN}{' ' * pad}{title}{Color.RESET}")
+            if subtitle:
+                sub_pad = max(0, (width - len(subtitle)) // 2)
+                print(f"{Color.DIM}{Color.WHITE}{' ' * sub_pad}{subtitle}{Color.RESET}")
+            print(f"{Color.BOLD}{Color.BRIGHT_BLUE}{'=' * width}{Color.RESET}")
+            print()
+        if self.logger:
+            self.logger.info(f"=== {title} ===")
+            if subtitle:
+                self.logger.info(f"   {subtitle}")
+
+    def display_module_header(self, title: str, subtitle: str = ""):
+        if self.quiet:
+            return
+        width = 80
+        line = f"{Color.BOLD}{Color.BRIGHT_MAGENTA}{'─' * width}{Color.RESET}"
+        print(line)
+        print(f"{Color.BOLD}{Color.BRIGHT_CYAN}  ▸ {title}{Color.RESET}")
+        if subtitle:
+            print(f"{Color.DIM}{Color.WHITE}    {subtitle}{Color.RESET}")
+        print(line)
+
+    def display_banner(self):
+        if self.quiet:
+            return
+        print(f"""{Color.BOLD}{Color.BRIGHT_MAGENTA}
+{'=' * 80}
+{' ' * 20}KLEBOSCOPE v{__version__}
+{' ' * 12}K. pneumoniae Genomic Analysis Pipeline
+{'=' * 80}{Color.RESET}{Color.BRIGHT_CYAN}
+Complete K. pneumoniae genomic analysis:
+  MLST | K/O Locus | ABRicate | AMRFinderPlus | MGE | QC | Reports
+
+Author: {AUTHOR_NAME} <{AUTHOR_EMAIL}>
+Affiliation: {AUTHOR_AFFILIATION}
+{Color.RESET}{Color.DIM}{'=' * 80}{Color.RESET}
+""")
+
+    def _get_quotes(self) -> List[str]:
         return [
-            {"quote": "Science is organised knowledge.", "author": "Herbert Spencer", "theme": "knowledge"},
-            {"quote": "The science of today is the technology of tomorrow.", "author": "Edward Teller", "theme": "technology"},
-            {"quote": "Nature is the source of all true knowledge.", "author": "Leonardo da Vinci", "theme": "nature"},
-            {"quote": "Biology is the most powerful technology ever created.", "author": "Freeman Dyson", "theme": "biology"},
-            {"quote": "Genomics is a lens on biology.", "author": "Eric Lander", "theme": "genomics"},
-            {"quote": "Every microbe has its own story.", "author": "Anonymous", "theme": "microbiology"},
-            {"quote": "Data beats emotions.", "author": "Sean Rad", "theme": "data"},
-            {"quote": "Code is poetry.", "author": "WordPress", "theme": "programming"},
-            {"quote": "Sequence today, understand tomorrow.", "author": "Anonymous", "theme": "sequencing"},
-            {"quote": "Microbes rule the world.", "author": "Paul Stamets", "theme": "microbiology"},
-            {"quote": "In every drop, a universe.", "author": "Antonie van Leeuwenhoek", "theme": "microscopy"},
-            {"quote": "Genes are the language of life.", "author": "Francis Collins", "theme": "genetics"},
-            {"quote": "Resistance is not futile.", "author": "Antibiotic Researcher", "theme": "resistance"},
-            {"quote": "Evolution in a petri dish.", "author": "Richard Lenski", "theme": "evolution"},
-            {"quote": "Small things, big impact.", "author": "Microbiologist", "theme": "microbes"},
-            {"quote": "The good thing about science is that it's true whether or not you believe in it.", "author": "Neil deGrasse Tyson", "theme": "science"},
-            {"quote": "In science, there are no shortcuts to truth.", "author": "Karl Popper", "theme": "science"},
-            {"quote": "Nothing in life is to be feared, it is only to be understood.", "author": "Marie Curie", "theme": "understanding"},
-            {"quote": "The most exciting phrase to hear in science is not 'Eureka!' but 'That's funny...'", "author": "Isaac Asimov", "theme": "discovery"},
-            {"quote": "Science knows no country, because knowledge belongs to humanity.", "author": "Louis Pasteur", "theme": "global"},
-            {"quote": "DNA is like a computer program but far, far more advanced than any software ever created.", "author": "Bill Gates", "theme": "genomics"},
+            "Science is organised knowledge. — Herbert Spencer",
+            "The science of today is the technology of tomorrow. — Edward Teller",
+            "Genomics is a lens on biology. — Eric Lander",
+            "Every microbe has its own story.",
+            "Sequence today, understand tomorrow.",
+            "Genes are the language of life. — Francis Collins",
+            "Small things, big impact.",
+            "In science, there are no shortcuts to truth. — Karl Popper",
+            "Nothing in life is to be feared, it is only to be understood. — Marie Curie",
+            "Science knows no country, because knowledge belongs to humanity. — Louis Pasteur",
         ]
 
     def display_random_quote(self):
-        if not self.quotes:
+        if self.quiet or not self.quotes:
             return
-        quote_data = random.choice(self.quotes)
-        quote = quote_data["quote"]
-        author = quote_data["author"]
-        theme = quote_data.get("theme", "science")
-        quote_color = random.choice(self.quote_colors)
-        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        theme_icons = {"microbiology": "🦠", "discovery": "🔬", "knowledge": "📚", "medicine": "⚕️",
-                       "science": "🧪", "research": "🔍", "exploration": "🚀", "curiosity": "🤔",
-                       "practice": "🛠️", "motivation": "💪", "nature": "🌿", "inquiry": "❓",
-                       "technology": "💻", "understanding": "🧠", "perspective": "👁️", "innovation": "💡",
-                       "recognition": "🏆", "purpose": "🎯", "biology": "🧬", "genomics": "🧬",
-                       "data": "📊", "programming": "💻", "sequencing": "🧬", "microscopy": "🔬",
-                       "genetics": "🧬", "resistance": "🛡️", "evolution": "🔄", "microbes": "🦠",
-                       "global": "🌍", "conservation": "🌱", "time": "⏳", "collaboration": "🤝"}
-        icon = theme_icons.get(theme, "💭")
+        quote = random.choice(self.quotes)
+        color = random.choice(self.quote_colors)
         print()
-        print(f"{Color.DIM}{Color.WHITE}{'─' * 80}{Color.RESET}")
-        print(f"{Color.DIM}{Color.WHITE}[{current_time}] {icon} SCIENTIFIC INSIGHT: {Color.RESET}")
-        print()
-        print(f"{quote_color}   \"{quote}\"{Color.RESET}")
-        print(f"{Color.BOLD}{Color.WHITE}   — {author}{Color.RESET}")
-        print(f"{Color.DIM}{Color.WHITE}   Theme: {theme.capitalize()}{Color.RESET}")
-        print(f"{Color.DIM}{Color.WHITE}{'─' * 80}{Color.RESET}")
+        print(f"{Color.DIM}{'─' * 80}{Color.RESET}")
+        print(f"{color}   \"{quote}\"{Color.RESET}")
+        print(f"{Color.DIM}{'─' * 80}{Color.RESET}")
         print()
 
-    def update_amr_database(self, force: bool = False) -> bool:
-        amr_module_path = self.base_dir / "modules" / "kleb_amr_module"
-        amr_script = amr_module_path / "klebo_amrfinder.py"
-        if not amr_script.exists():
-            self.print_error(f"AMR script not found at: {amr_script}")
-            return False
-        self.print_info("Updating AMRfinderPlus database...")
-        flag = "--force-update" if force else "--update-db"
-        cmd = [sys.executable, str(amr_script), flag]
-        result = subprocess.run(cmd, capture_output=True, text=True, cwd=amr_module_path)
-        if result.returncode == 0:
-            self.print_success("AMR database updated successfully.")
-            version_cmd = [sys.executable, str(amr_script), "--db-version"]
-            version_result = subprocess.run(version_cmd, capture_output=True, text=True, cwd=amr_module_path)
-            if version_result.returncode == 0:
-                self.print_info(f"New database version: {version_result.stdout.strip()}")
-            return True
-        else:
-            self.print_error("AMR database update failed.")
+    def _run_timed(self, label: str, fn, *args, **kwargs):
+        start = datetime.now()
+        result = fn(*args, **kwargs)
+        elapsed = datetime.now() - start
+        elapsed_secs = elapsed.total_seconds()
+        elapsed_str = str(elapsed).split('.')[0]
+        self.module_times[label] = elapsed_secs
+        if not self.quiet:
+            ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            print(f"{Color.DIM}[t]{Color.RESET} "
+                  f"{Color.DIM}[{ts}]{Color.RESET} "
+                  f"{label} finished in {Color.BRIGHT_WHITE}{elapsed_str}{Color.RESET}")
+        if self.logger:
+            self.logger.info(f"TIMING: {label} = {elapsed_str}")
+        return result
+
+    def _log_subprocess_result(self, name: str, result) -> bool:
+        """Log full subprocess output; echo to console on failure."""
+        if result.stdout:
+            self.logger.info(f"=== {name} STDOUT ===\n{result.stdout}")
+        if result.stderr:
+            self.logger.warning(f"=== {name} STDERR ===\n{result.stderr}")
+        if result.returncode != 0:
+            print(f"\n{Color.BRIGHT_RED}--- {name} FAILED (rc={result.returncode}) ---{Color.RESET}")
+            if result.stdout:
+                print(f"{Color.DIM}STDOUT:{Color.RESET}\n{result.stdout}")
             if result.stderr:
-                print(result.stderr)
+                print(f"{Color.DIM}STDERR:{Color.RESET}\n{result.stderr}")
+            print(f"{Color.BRIGHT_RED}--- END {name} ---{Color.RESET}\n")
+            return False
+        return True
+
+    # ------------------------------------------------------------------
+    # Module path resolution
+    # ------------------------------------------------------------------
+    def get_module_path(self, module_name: str) -> Path:
+        """Resolve a module directory, honouring environment overrides."""
+        env_override = os.environ.get(f'KLEBOSCOPE_{module_name.upper()}_MODULE_PATH')
+        if env_override:
+            return Path(env_override)
+        if hasattr(sys, 'prefix'):
+            share_path = Path(sys.prefix) / "share" / "kleboscope" / "modules" / module_name
+            if share_path.exists():
+                return share_path
+        return self.base_dir / "modules" / module_name
+
+    def _get_system_module_path(self, module_name: str) -> Path:
+        if hasattr(sys, 'prefix'):
+            share_path = Path(sys.prefix) / "share" / "kleboscope" / "modules" / module_name
+            if share_path.exists():
+                return share_path
+        return self.base_dir / "modules" / module_name
+
+    def get_shared_data_root(self) -> Path:
+        """Writable user-local data root for read-only module installs."""
+        root = Path(os.environ.get(
+            "KLEBOSCOPE_SHARED_DATA",
+            Path.home() / ".local" / "share" / "kleboscope",
+        ))
+        root.mkdir(parents=True, exist_ok=True)
+        return root
+
+    # ------------------------------------------------------------------
+    # MLST database resolution
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _mlst_db_has_scheme(db_dir: Optional[Path]) -> bool:
+        return db_dir is not None and (db_dir / "pubmlst" / "klebsiella").exists()
+
+    def get_mlst_db_dir(self, for_update: bool = False) -> Path:
+        """Resolve the MLST database directory.
+
+        Resolution order:
+          1. KLEBOSCOPE_MLST_DB env override
+          2. User-local ~/.local/share/kleboscope/mlst_module/db
+          3. Packaged module db/
+
+        When for_update=True, always return a writable path.
+        """
+        env_db = os.environ.get("KLEBOSCOPE_MLST_DB")
+        if env_db:
+            p = Path(env_db)
+            if for_update:
+                p.mkdir(parents=True, exist_ok=True)
+                return p
+            if self._mlst_db_has_scheme(p):
+                return p
+
+        user_module = Path(os.environ.get(
+            "KLEBOSCOPE_MLST_MODULE_PATH",
+            self.get_shared_data_root() / "mlst_module",
+        ))
+        user_db = user_module / "db"
+
+        if for_update:
+            user_db.mkdir(parents=True, exist_ok=True)
+            return user_db
+
+        if self._mlst_db_has_scheme(user_db):
+            self.print_info(f"Using user-local MLST database: {user_db}")
+            return user_db
+
+        module_db = self.get_module_path("mlst_module") / "db"
+        if self._mlst_db_has_scheme(module_db):
+            return module_db
+
+        self.print_warning(
+            "No populated MLST database found. Run `kleboscope --pull-mlst-db`."
+        )
+        user_db.mkdir(parents=True, exist_ok=True)
+        return user_db
+
+    # ------------------------------------------------------------------
+    # MGE database resolution
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _mge_db_has_data(db_dir: Optional[Path]) -> bool:
+        """Return True if the directory contains the beatrix DIAMOND index."""
+        if db_dir is None or not db_dir.exists():
+            return False
+        candidates = [
+            db_dir / "beatrix-1-6_v1_all" / "mobileOG-db-beatrix-1.6.dmnd",
+            db_dir / "mobileOG-db-beatrix-1.6.dmnd",
+            db_dir / "beatrix-1-6_v1_all.dmnd",
+        ]
+        return any(c.exists() for c in candidates)
+
+    def get_mge_data_dir(self, for_update: bool = False) -> Optional[Path]:
+        """Return the mobileOG-db data directory.
+
+        Resolution order:
+          1. KLEBOSCOPE_MGE_DATA_DIR env override
+          2. User-local ~/.local/share/kleboscope/mge_module/mobileOG-db/
+          3. Packaged <module>/mobileOG-db/ (Docker / Singularity)
+        """
+        env_dir = os.environ.get("KLEBOSCOPE_MGE_DATA_DIR")
+        if env_dir:
+            env_path = Path(env_dir)
+            if for_update:
+                env_path.mkdir(parents=True, exist_ok=True)
+                return env_path
+            if self._mge_db_has_data(env_path):
+                return env_path
+
+        user_module = Path(os.environ.get(
+            "KLEBOSCOPE_MGE_MODULE_PATH",
+            self.get_shared_data_root() / "mge_module",
+        ))
+        user_dir = user_module / "mobileOG-db"
+
+        if for_update:
+            user_dir.mkdir(parents=True, exist_ok=True)
+            return user_dir
+        if self._mge_db_has_data(user_dir):
+            if self.logger:
+                self.logger.info(f"Using user-local mobileOG-db: {user_dir}")
+            return user_dir
+
+        module_db = self.get_module_path("mge_module") / "mobileOG-db"
+        if self._mge_db_has_data(module_db):
+            return module_db
+
+        return None
+
+    # ------------------------------------------------------------------
+    # Exec-bit restoration
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _restore_exec_bits(root: Path, logger=None) -> int:
+        """Restore +x on runnable files (zip extraction / NFS strip it)."""
+        if not root.exists():
+            return 0
+        executable_exts = {".pl", ".sh", ".py", ".rb"}
+        count = 0
+        for f in root.rglob("*"):
+            if not f.is_file():
+                continue
+            try:
+                parent_is_bin = f.parent.name in ("bin", "scripts")
+                is_script = f.suffix.lower() in executable_exts
+                if not (parent_is_bin or is_script):
+                    continue
+                current = f.stat().st_mode
+                new_mode = current | 0o111
+                if new_mode != current:
+                    f.chmod(new_mode)
+                    count += 1
+            except Exception:
+                pass
+        if logger and count > 0:
+            logger.info(f"Restored execute bit on {count} file(s) under {root}")
+        return count
+
+    # ------------------------------------------------------------------
+    # MLST database: pull
+    # ------------------------------------------------------------------
+    def _ensure_mlst_blast_index(self, target_path: Path) -> bool:
+        """Build db/blast/mlst.fa if missing (required by bin/mlst)."""
+        blast_fa = target_path / "db" / "blast" / "mlst.fa"
+        if blast_fa.exists():
+            return True
+
+        self.print_info("BLST blast index missing; building db/blast/mlst.fa...")
+        for candidate in ("scripts/mlst-make_blast_db.sh", "bin/mlst-make_blast_db.sh"):
+            script = target_path / candidate
+            if script.exists():
+                result = subprocess.run(
+                    ["bash", str(script)], cwd=target_path,
+                    capture_output=True, text=True,
+                )
+                if result.stdout:
+                    self.logger.info(result.stdout)
+                if result.stderr:
+                    self.logger.warning(result.stderr)
+                if result.returncode == 0 and blast_fa.exists():
+                    self.print_success("MLST blast index built.")
+                    return True
+                self.print_warning(
+                    f"{candidate} did not produce {blast_fa} "
+                    f"(makeblastdb must be on PATH)."
+                )
+                return False
+
+        self.print_warning(
+            f"No make_blast_db script found; run it manually in {target_path} "
+            f"or MLST will fail with 'db/blast/mlst.fa: No such file'."
+        )
+        return False
+
+    def pull_mlst_database(self) -> bool:
+        """Install the Klebsiella MLST database.
+
+        Writes into the packaged module directory if writable, otherwise
+        ~/.local/share/kleboscope/mlst_module/. Prefers the module's
+        database.sh installer; falls back to the prebuilt GitHub archive.
+        """
+        module_path = self.get_module_path("mlst_module")
+
+        if module_path.exists() and os.access(module_path, os.W_OK):
+            target_path = module_path
+            self.print_info(f"Using writable module directory: {target_path}")
+        else:
+            target_path = Path(os.environ.get(
+                "KLEBOSCOPE_MLST_MODULE_PATH",
+                self.get_shared_data_root() / "mlst_module",
+            ))
+            target_path.mkdir(parents=True, exist_ok=True)
+            self.print_info(
+                f"System MLST module is read-only; using user-local path: {target_path}"
+            )
+
+        system_path = self._get_system_module_path("mlst_module")
+        target_db = target_path / "db"
+
+        if self._mlst_db_has_scheme(target_db):
+            self.print_success(f"MLST database already present at {target_db}")
+            self._ensure_mlst_blast_index(target_path)
+            os.environ['KLEBOSCOPE_MLST_MODULE_PATH'] = str(target_path)
+            os.environ['KLEBOSCOPE_MLST_DB'] = str(target_db)
+            return True
+
+        installer = module_path / "database.sh"
+        if installer.exists():
+            self.print_info(f"Running {installer.name} to install MLST database...")
+            env = os.environ.copy()
+            env['KLEBOSCOPE_MLST_DB'] = str(target_db)
+            env['MLST_DATADIR'] = str(target_db)
+            result = subprocess.run(
+                ["bash", str(installer)], cwd=module_path,
+                capture_output=True, text=True, env=env,
+            )
+            if not self._log_subprocess_result("MLST database install", result):
+                self.print_error("MLST database installation failed.")
+                return False
+            if not self._mlst_db_has_scheme(target_db):
+                self.print_error(
+                    f"Installation completed but no scheme found at {target_db}"
+                )
+                return False
+            self._restore_exec_bits(target_path, logger=self.logger)
+            self._ensure_mlst_blast_index(target_path)
+            self.print_success(f"MLST database installed to {target_db}")
+            os.environ['KLEBOSCOPE_MLST_MODULE_PATH'] = str(target_path)
+            os.environ['KLEBOSCOPE_MLST_DB'] = str(target_db)
+            return True
+
+        return self._download_mlst_from_github(target_path, system_path)
+
+    def _download_mlst_from_github(self, target_path: Path,
+                                   system_path: Path) -> bool:
+        """Download a prebuilt MLST database archive from GitHub."""
+        url = os.environ.get(
+            "KLEBOSCOPE_MLST_PULL_URL",
+            "https://github.com/bbeckley-hub/mlst/archive/refs/heads/master.zip",
+        )
+        extract_dir = None
+        try:
+            self.print_info(f"Downloading MLST database from {url}")
+            with urllib.request.urlopen(url, timeout=60) as resp:
+                data = resp.read()
+            self.print_info(f"Downloaded {len(data) / 1024:.1f} KB")
+
+            extract_dir = Path(self._mkdtemp(prefix="kleboscope_mlst_extract_"))
+            zip_path = extract_dir / "mlst.zip"
+            zip_path.write_bytes(data)
+            with zipfile.ZipFile(zip_path, "r") as zf:
+                zf.extractall(extract_dir)
+
+            candidates = list(extract_dir.glob("mlst-*"))
+            if not candidates:
+                self.print_error("Extracted repository root not found in archive")
+                return False
+            src_root = candidates[0]
+
+            for dirname in ('bin', 'db', 'perl5', 'scripts'):
+                src = src_root / dirname
+                if src.exists():
+                    dst = target_path / dirname
+                    if dst.exists():
+                        shutil.rmtree(dst)
+                    shutil.copytree(src, dst)
+                    self.logger.info(f"Copied {dirname}/ to {dst}")
+                else:
+                    self.print_warning(f"'{dirname}' not found in repository, skipping.")
+
+            self._restore_exec_bits(target_path, logger=self.logger)
+
+            if target_path != system_path:
+                for script in ('klebo_mlst.py', 'database.sh'):
+                    src_script = system_path / script
+                    if src_script.exists():
+                        shutil.copy2(src_script, target_path / script)
+
+            db_check = target_path / "db" / "pubmlst" / "klebsiella"
+            if not db_check.exists():
+                self.print_error(f"MLST scheme missing after pull: {db_check}")
+                return False
+
+            allele_files = sorted(db_check.glob("*.tfa"))
+            if not allele_files:
+                self.print_error(f"No allele files (*.tfa) found in {db_check}")
+                return False
+            self.print_info(f"Verified {len(allele_files)} allele loci in {db_check}")
+
+            removed = 0
+            pubmlst = target_path / "db" / "pubmlst"
+            if pubmlst.exists():
+                for item in pubmlst.iterdir():
+                    if item.is_dir() and item.name != "klebsiella":
+                        shutil.rmtree(item, ignore_errors=True)
+                        removed += 1
+            if removed:
+                self.print_info(f"Pruned {removed} unused MLST scheme(s)")
+
+            self._ensure_mlst_blast_index(target_path)
+
+            os.environ['KLEBOSCOPE_MLST_MODULE_PATH'] = str(target_path)
+            os.environ['KLEBOSCOPE_MLST_DB'] = str(target_path / "db")
+            self.print_success(f"MLST database installed to {target_path / 'db'}")
+            return True
+
+        except Exception as exc:
+            self.print_error(f"MLST download failed: {exc}")
+            self.print_info(
+                "If this URL is unavailable, download manually or set "
+                "KLEBOSCOPE_MLST_PULL_URL to a valid archive URL."
+            )
+            return False
+        finally:
+            if extract_dir and extract_dir.exists():
+                shutil.rmtree(extract_dir, ignore_errors=True)
+
+    def update_mlst_database(self) -> bool:
+        """Refresh the Klebsiella MLST scheme via klebo_mlst.py --update-db."""
+        module_path = self.get_module_path("mlst_module")
+        if module_path.exists() and os.access(module_path, os.W_OK):
+            target_module = module_path
+        else:
+            target_module = Path(os.environ.get(
+                "KLEBOSCOPE_MLST_MODULE_PATH",
+                self.get_shared_data_root() / "mlst_module",
+            ))
+            target_module.mkdir(parents=True, exist_ok=True)
+
+        script = target_module / "klebo_mlst.py"
+        if not script.exists():
+            script = module_path / "klebo_mlst.py"
+        if not script.exists():
+            self.print_error(f"MLST script not found: {script}")
             return False
 
+        db_dir = target_module / "db"
+        db_dir.mkdir(parents=True, exist_ok=True)
+
+        if not self._mlst_db_has_scheme(db_dir):
+            self.print_error(
+                f"MLST module tree is not populated at {target_module}. "
+                "Run `kleboscope --pull-mlst-db` first."
+            )
+            return False
+
+        os.environ['KLEBOSCOPE_MLST_MODULE_PATH'] = str(target_module)
+        os.environ['KLEBOSCOPE_MLST_DB'] = str(db_dir)
+
+        self.print_info(f"Updating MLST database at {db_dir}...")
+        env = os.environ.copy()
+        env['KLEBOSCOPE_MLST_DB'] = str(db_dir)
+        result = subprocess.run(
+            [sys.executable, str(script), "--update-db",
+             "-db", str(db_dir), "-sc", str(target_module)],
+            capture_output=True, text=True, cwd=target_module, env=env,
+        )
+        if not self._log_subprocess_result("MLST database update", result):
+            self.print_error("MLST database update failed.")
+            return False
+
+        if not self._mlst_db_has_scheme(db_dir):
+            self.print_error(f"Update finished but no scheme found at {db_dir}")
+            return False
+
+        self._ensure_mlst_blast_index(target_module)
+        self.print_success(f"MLST database updated at {db_dir}")
+        return True
+
+    # ------------------------------------------------------------------
+    # MGE database: pull
+    # ------------------------------------------------------------------
+    def pull_mge_database(self) -> bool:
+        """Download mobileOG-db from the GitHub release.
+
+        Docker and Singularity users do not need this — the data is baked
+        into the image and get_mge_data_dir() finds it there automatically.
+        """
+        existing = self.get_mge_data_dir()
+        if existing is not None:
+            self.print_success(f"mobileOG-db already present at {existing}")
+            os.environ["KLEBOSCOPE_MGE_DATA_DIR"] = str(existing)
+            return True
+
+        module_path = self.get_module_path("mge_module")
+        if module_path.exists() and os.access(module_path, os.W_OK):
+            target_root = module_path
+            self.print_info(f"Using writable module directory: {target_root}")
+        else:
+            target_root = self.get_shared_data_root() / "mge_module"
+            target_root.mkdir(parents=True, exist_ok=True)
+            self.print_info(
+                f"Module dir is read-only; using user-local path: {target_root}"
+            )
+
+        url = os.environ.get(
+            "KLEBOSCOPE_MGE_PULL_URL",
+            "https://github.com/bbeckley-hub/Kleboscope/releases/download/"
+            "v1.3.0/kleboscope-mge-data-v1.3.0.zip",
+        )
+        extract_dir = None
+        try:
+            self.print_info(f"Downloading mobileOG-db from {url}")
+            self.print_info(
+                "Payload is approximately 300 MB, this may take a few minutes..."
+            )
+            temp_zip = Path(self._mkdtemp(prefix="kleboscope_mge_zip_")) / "mge.zip"
+            urllib.request.urlretrieve(url, temp_zip)
+            self.print_success("Download complete")
+
+            extract_dir = Path(self._mkdtemp(prefix="kleboscope_mge_extract_"))
+            with zipfile.ZipFile(temp_zip, "r") as zf:
+                zf.extractall(extract_dir)
+            self.logger.info(f"Extracted to {extract_dir}")
+
+            beatrix_dir = None
+            for root, dirs, _ in os.walk(extract_dir):
+                if "beatrix-1-6_v1_all" in dirs:
+                    beatrix_dir = Path(root) / "beatrix-1-6_v1_all"
+                    break
+            if beatrix_dir is None:
+                self.print_error("Could not find beatrix-1-6_v1_all in archive")
+                return False
+
+            dmnd = beatrix_dir / "mobileOG-db-beatrix-1.6.dmnd"
+            if not dmnd.exists():
+                self.print_error(f"DIAMOND index missing from archive: {dmnd.name}")
+                return False
+
+            target_beatrix = target_root / "mobileOG-db" / "beatrix-1-6_v1_all"
+            if target_beatrix.exists():
+                shutil.rmtree(target_beatrix)
+            target_beatrix.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(beatrix_dir, target_beatrix)
+
+            dmnd_target = target_beatrix / "mobileOG-db-beatrix-1.6.dmnd"
+            if not dmnd_target.exists():
+                self.print_error(
+                    f"Install verification failed: {dmnd_target} not present"
+                )
+                return False
+
+            size_mb = dmnd_target.stat().st_size / (1024 * 1024)
+            self.print_success(
+                f"mobileOG-db installed to {target_root / 'mobileOG-db'} "
+                f"(DIAMOND index: {size_mb:.0f} MB)"
+            )
+            os.environ["KLEBOSCOPE_MGE_DATA_DIR"] = str(target_root / "mobileOG-db")
+            os.environ["KLEBOSCOPE_MGE_MODULE_PATH"] = str(target_root)
+            return True
+
+        except Exception as exc:
+            self.print_error(f"mobileOG-db download failed: {exc}")
+            self.print_info(
+                "If this URL is unavailable, place mobileOG-db manually at "
+                "~/.local/share/kleboscope/mge_module/mobileOG-db/ or set "
+                "KLEBOSCOPE_MGE_PULL_URL to a valid archive URL."
+            )
+            return False
+        finally:
+            if extract_dir and extract_dir.exists():
+                shutil.rmtree(extract_dir, ignore_errors=True)
+
+    # ------------------------------------------------------------------
+    # AMR database management
+    # ------------------------------------------------------------------
+    def update_amr_database(self, force: bool = False) -> bool:
+        """Update the AMRFinderPlus database."""
+        module_path = self.get_module_path("amr_module")
+        script = module_path / "klebo_amrfinder.py"
+        if not script.exists():
+            self.print_error(f"AMR script not found: {script}")
+            return False
+
+        if force:
+            self.print_info("Force mode: module will overwrite existing database.")
+
+        self.print_info("Updating AMRFinderPlus database...")
+        flag = "--force-update" if force else "--update-db"
+        result = subprocess.run(
+            [sys.executable, str(script), flag],
+            capture_output=True, text=True, cwd=module_path,
+        )
+        if not self._log_subprocess_result("AMR database update", result):
+            self.print_error("AMR database update failed.")
+            return False
+
+        self.print_success("AMR database updated successfully.")
+        ver_result = subprocess.run(
+            [sys.executable, str(script), "--db-version"],
+            capture_output=True, text=True, cwd=module_path,
+        )
+        if ver_result.returncode == 0 and ver_result.stdout:
+            self.print_info(f"New database version: {ver_result.stdout.strip()}")
+        return True
+
+    def ensure_amr_database(self) -> bool:
+        """Verify AMRFinderPlus database exists; auto-update if missing."""
+        module_path = self.get_module_path("amr_module")
+        script = module_path / "klebo_amrfinder.py"
+        if not script.exists():
+            self.print_error("AMR script not found, cannot check database.")
+            return False
+
+        result = subprocess.run(
+            [sys.executable, str(script), "--db-version"],
+            capture_output=True, text=True, cwd=module_path,
+        )
+        if (result.returncode == 0
+                and "Unknown" not in result.stdout
+                and "None" not in result.stdout):
+            self.print_success(
+                f"AMR database already present: {result.stdout.strip()}"
+            )
+            return True
+
+        self.print_warning("AMR database missing; attempting automatic update...")
+        return self.update_amr_database(force=False)
+
+    # ------------------------------------------------------------------
+    # FASTA discovery
+    # ------------------------------------------------------------------
     def find_fasta_files(self, input_path: str) -> List[Path]:
-        self.print_info(f"Searching for files with pattern: {input_path}")
         if '*' in input_path or '?' in input_path:
-            matched_files = glob.glob(input_path)
-            fasta_files = [Path(f) for f in matched_files if Path(f).is_file() and
-                           f.lower().endswith(('.fna', '.fasta', '.fa', '.fn')) and
-                           not Path(f).name.startswith('.')]
-            self.print_success(f"Found {len(fasta_files)} FASTA files")
-            return sorted(fasta_files)
+            matched = glob.glob(input_path)
+            files = [Path(f) for f in matched
+                     if Path(f).is_file()
+                     and f.lower().endswith(('.fna', '.fasta', '.fa', '.fsa'))
+                     and not Path(f).name.startswith('.')]
+            self.print_info(f"Found {len(files)} FASTA files from pattern")
+            return sorted(files)
 
-        input_path_obj = Path(input_path)
-        if input_path_obj.is_file() and input_path_obj.suffix.lower() in ['.fna', '.fasta', '.fa', '.fn']:
-            self.print_success(f"Found single FASTA file: {input_path_obj.name}")
-            return [input_path_obj]
-
-        if input_path_obj.is_dir():
-            patterns = [f"{input_path}/*.fna", f"{input_path}/*.fasta", f"{input_path}/*.fa", f"{input_path}/*.fn"]
-            fasta_files = []
-            for pattern in patterns:
-                matched_files = glob.glob(pattern)
-                for file_path in matched_files:
-                    path = Path(file_path)
-                    if path.is_file() and not path.name.startswith('.'):
-                        fasta_files.append(path)
-            fasta_files = sorted(list(set(fasta_files)))
-            if fasta_files:
-                self.print_success(f"Found {len(fasta_files)} FASTA files in directory")
-            else:
-                self.print_warning(f"No FASTA files found in directory: {input_path}")
-            return fasta_files
-
+        p = Path(input_path)
+        if p.is_file() and p.suffix.lower() in ('.fna', '.fasta', '.fa', '.fsa'):
+            return [p]
+        if p.is_dir():
+            files = []
+            for ext in ('*.fna', '*.fasta', '*.fa', '*.fsa',
+                        '*.FNA', '*.FASTA', '*.FA', '*.FSA'):
+                files.extend(p.glob(ext))
+            files = [f for f in files if f.is_file() and not f.name.startswith('.')]
+            self.print_info(f"Found {len(files)} FASTA files in {p}")
+            return sorted(set(files))
         self.print_error(f"Input path not found: {input_path}")
         return []
 
     def get_file_pattern(self, fasta_files: List[Path]) -> str:
         if not fasta_files:
             return "*.fna"
-        extensions = set(f.suffix.lower() for f in fasta_files)
-        if len(extensions) == 1:
-            return f"*{list(extensions)[0]}"
+        exts = set(f.suffix.lower() for f in fasta_files)
+        if len(exts) == 1:
+            return f"*{list(exts)[0]}"
         return "*"
 
-    def run_module_in_temp(self, module_name: str, fasta_files: List[Path],
-                           cmd_str: str, result_subdir: str = None) -> Tuple[bool, str]:
-        global _should_exit
-        if _should_exit:
-            return False, "Execution interrupted by user."
+    # ------------------------------------------------------------------
+    # Copy helpers
+    # ------------------------------------------------------------------
+    def _copy_module_results(self, src: Path, dst: Path,
+                             skip_dirs: Optional[Set[str]] = None) -> None:
+        """Copy module results to the user output dir, respecting report_level."""
+        if not src.exists():
+            return
+        if dst.exists():
+            shutil.rmtree(dst)
+        dst.mkdir(parents=True, exist_ok=True)
 
-        module_orig = self.base_dir / "modules" / module_name
+        skip_dirs = skip_dirs or set()
+        for item in src.iterdir():
+            if item.name in skip_dirs:
+                continue
+            if item.is_file():
+                shutil.copy2(item, dst / item.name)
+            elif item.is_dir() and self.report_level == 'full':
+                shutil.copytree(item, dst / item.name)
+
+    # ------------------------------------------------------------------
+    # Generic module runner
+    # ------------------------------------------------------------------
+    def run_module_in_temp(
+        self,
+        module_name: str,
+        fasta_files: List[Path],
+        cmd_parts: List[str],
+        result_subdir: Optional[str] = None,
+        extra_result_files: Optional[List[str]] = None,
+        env_overrides: Optional[Dict[str, str]] = None,
+    ) -> Tuple[bool, str]:
+        """Copy module to a temp dir, run it there, copy results back.
+
+        The module is copied to <temp>/<module_name>, FASTA files are
+        copied next to it, and the command runs with cwd=<temp>/<module_name>
+        so module-relative paths (db/, bin/, scripts/) resolve correctly.
+        """
+        module_orig = self.get_module_path(module_name)
         if not module_orig.exists():
             return False, f"Module directory not found: {module_orig}"
 
-        temp_dir = tempfile.mkdtemp(prefix=f"kleboscope_{module_name}_")
-        self.temp_dirs.add(temp_dir)
-        self.logger.info(f"Temporary directory for {module_name}: {temp_dir}")
+        temp_dir = Path(self._mkdtemp(prefix=f"kleboscope_{module_name}_"))
+        self.temp_dirs.append(str(temp_dir))
+        if self.logger:
+            self.logger.info(f"Temp dir for {module_name}: {temp_dir}")
 
         try:
-            # Copy module
-            shutil.copytree(module_orig, Path(temp_dir) / module_name, dirs_exist_ok=True)
-            module_work_dir = Path(temp_dir) / module_name
+            work_dir = temp_dir / module_name
+            shutil.copytree(module_orig, work_dir, dirs_exist_ok=True)
+            self._restore_exec_bits(work_dir, logger=self.logger)
 
-            # Copy fasta files
             for f in fasta_files:
-                shutil.copy2(f, module_work_dir / f.name)
+                shutil.copy2(f, work_dir / f.name)
 
-            self.logger.info(f"Copied {len(fasta_files)} files to {module_name} module")
-            pattern = self.get_file_pattern(fasta_files)
-            self.logger.info(f"Running {module_name} analysis with pattern: {pattern}")
+            script_name = Path(cmd_parts[1]).name
+            script_path = work_dir / script_name
+            if not script_path.exists():
+                return False, f"Script not found in {module_name}: {script_name}"
 
-            # Run the command
-            result = subprocess.run(cmd_str, shell=True, cwd=module_work_dir, capture_output=True, text=True)
-            if result.stdout:
-                self.logger.info(f"STDOUT:\n{result.stdout}")
-            if result.stderr:
-                self.logger.info(f"STDERR:\n{result.stderr}")
+            abs_cmd = [cmd_parts[0], str(script_path)] + cmd_parts[2:]
 
-            if _should_exit:
-                return False, "Execution interrupted after module completion."
+            env = os.environ.copy()
+            if env_overrides:
+                env.update(env_overrides)
 
-            if result.returncode != 0:
-                self.logger.error(f"{module_name} failed with return code {result.returncode}")
-                return False, f"{module_name} failed with return code {result.returncode}"
+            if self.logger:
+                self.logger.info(f"Command: {' '.join(abs_cmd)}")
+            result = subprocess.run(
+                abs_cmd, cwd=work_dir, capture_output=True, text=True, env=env,
+            )
+            if not self._log_subprocess_result(module_name, result):
+                return False, f"{module_name} failed (rc={result.returncode})"
 
-            # Copy results
             if result_subdir:
-                src = module_work_dir / result_subdir
+                src = work_dir / result_subdir
                 if src.exists():
                     dst = self.user_output_dir / result_subdir
-                    if dst.exists():
-                        shutil.rmtree(dst)
-                    shutil.copytree(src, dst)
-                    self.logger.info(f"Results copied to {dst}")
+                    self._copy_module_results(src, dst)
+                    if self.logger:
+                        self.logger.info(f"Results copied to {dst}")
                 else:
-                    self.logger.warning(f"Result directory not found: {src}")
+                    self.print_warning(
+                        f"{module_name} ran but produced no {result_subdir}/ directory"
+                    )
+
+            if extra_result_files:
+                for extra in extra_result_files:
+                    src_extra = work_dir / extra
+                    if src_extra.exists():
+                        shutil.copy2(src_extra, self.user_output_dir / extra)
+                        if self.logger:
+                            self.logger.info(f"Copied {extra} to output")
 
             return True, f"{module_name} completed successfully"
 
-        except Exception as e:
-            self.logger.error(f"Exception in {module_name}: {e}\n{traceback.format_exc()}")
-            return False, f"Exception in {module_name}: {e}"
+        except Exception as exc:
+            if self.logger:
+                self.logger.error(
+                    f"Exception in {module_name}: {exc}\n{traceback.format_exc()}"
+                )
+            return False, f"Exception: {exc}"
         finally:
-            if not self.keep_temp:
+            if not self.keep_temp and self.running:
                 shutil.rmtree(temp_dir, ignore_errors=True)
-                self.temp_dirs.discard(temp_dir)
-                self.logger.info(f"Removed temporary directory: {temp_dir}")
+                if self.logger:
+                    self.logger.info(f"Removed temporary directory: {temp_dir}")
 
-    def run_qc(self, fasta_files: List[Path], output_dir: Path, threads: int) -> Tuple[bool, str]:
+    # ------------------------------------------------------------------
+    # Analysis modules
+    # ------------------------------------------------------------------
+    def run_qc_analysis(self, fasta_files: List[Path], output_dir: Path,
+                        threads: int) -> Tuple[bool, str]:
         pattern = self.get_file_pattern(fasta_files)
-        cmd = f"python klebo_fasta_qc.py '{pattern}'"
-        return self.run_module_in_temp("kleb_qc_module", fasta_files, cmd, self.output_dirs['qc'])
+        cmd = [sys.executable, "klebo_fasta_qc.py", pattern,
+               "-o", DIR_QC, "-c", str(threads)]
+        return self.run_module_in_temp(
+            "qc_module", fasta_files, cmd, result_subdir=DIR_QC,
+        )
 
-    def run_mlst(self, fasta_files: List[Path], output_dir: Path, threads: int) -> Tuple[bool, str]:
+    def run_mlst_analysis(self, fasta_files: List[Path], output_dir: Path,
+                          threads: int) -> Tuple[bool, str]:
         pattern = self.get_file_pattern(fasta_files)
-        cmd = f"python klebo_mlst.py -i '{pattern}' -o {self.output_dirs['mlst']} -db db -sc . --batch"
-        return self.run_module_in_temp("kleb_mlst_module", fasta_files, cmd, self.output_dirs['mlst'])
+        db_dir = self.get_mlst_db_dir()
+        cmd = [sys.executable, "klebo_mlst.py",
+               "-i", pattern, "-o", DIR_MLST,
+               "-db", str(db_dir), "-sc", "bin",
+               "-c", str(threads), "--batch"]
+        return self.run_module_in_temp(
+            "mlst_module", fasta_files, cmd, result_subdir=DIR_MLST,
+            env_overrides={
+                'KLEBOSCOPE_MLST_DB': str(db_dir),
+                'MLST_DATADIR': str(db_dir),
+            },
+        )
 
-    def run_kaptive(self, fasta_files: List[Path], output_dir: Path, threads: int) -> Tuple[bool, str]:
+    def run_kaptive_analysis(self, fasta_files: List[Path], output_dir: Path,
+                             threads: int) -> Tuple[bool, str]:
         pattern = self.get_file_pattern(fasta_files)
-        cmd = f"python klebo_kaptive.py -i '{pattern}' -o {self.output_dirs['kaptive']}"
-        return self.run_module_in_temp("kleb_kaptive_module", fasta_files, cmd, self.output_dirs['kaptive'])
+        cmd = [sys.executable, "klebo_kaptive.py",
+               "-i", pattern, "-o", DIR_KAPTIVE, "-c", str(threads)]
+        return self.run_module_in_temp(
+            "kaptive_module", fasta_files, cmd, result_subdir=DIR_KAPTIVE,
+        )
 
-    def run_abricate(self, fasta_files: List[Path], output_dir: Path, threads: int,
-                    min_id: Optional[float] = None, min_cov: Optional[float] = None) -> Tuple[bool, str]:
+    def run_abricate_analysis(self, fasta_files: List[Path], output_dir: Path,
+                              threads: int, min_id: int = 80,
+                              min_cov: int = 80) -> Tuple[bool, str]:
         pattern = self.get_file_pattern(fasta_files)
-        cmd = f"python kleb_abricate_module.py '{pattern}'"
-        if min_id is not None:
-            cmd += f" --min-id {min_id}"
-        if min_cov is not None:
-            cmd += f" --min-cov {min_cov}"
-        return self.run_module_in_temp("kleb_abricate_module", fasta_files, cmd, "abricate_results")
+        cmd = [sys.executable, "kleb_abricate_module.py", pattern,
+               "--min-id", str(min_id), "--min-cov", str(min_cov),
+               "--cpus", str(threads)]
+        return self.run_module_in_temp(
+            "abricate_module", fasta_files, cmd, result_subdir=DIR_ABRICATE,
+        )
 
-    def run_amr(self, fasta_files: List[Path], output_dir: Path, threads: int,
-                min_identity: Optional[float] = None, min_coverage: Optional[float] = None,
-                skip_mutations: bool = False) -> Tuple[bool, str]:
+    def run_amr_analysis(self, fasta_files: List[Path], output_dir: Path,
+                         threads: int, min_identity: Optional[float] = None,
+                         min_coverage: Optional[float] = None,
+                         skip_mutations: bool = False,
+                         force_update: bool = False) -> Tuple[bool, str]:
+        if force_update:
+            self.update_amr_database(force=True)
+        elif not self.ensure_amr_database():
+            return False, "AMR database missing and could not be updated."
+
         pattern = self.get_file_pattern(fasta_files)
-        cmd = f"python klebo_amrfinder.py '{pattern}'"
+        cmd = [sys.executable, "klebo_amrfinder.py", pattern,
+               "--cpus", str(threads)]
         if min_identity is not None:
-            cmd += f" --min-identity {min_identity}"
+            cmd.extend(["--min-identity", str(min_identity)])
         if min_coverage is not None:
-            cmd += f" --min-coverage {min_coverage}"
+            cmd.extend(["--min-coverage", str(min_coverage)])
         if skip_mutations:
-            cmd += " --skip-mutations"
-        return self.run_module_in_temp("kleb_amr_module", fasta_files, cmd, "klebo_amrfinder_results")
+            cmd.append("--skip-mutations")
+        return self.run_module_in_temp(
+            "amr_module", fasta_files, cmd, result_subdir=DIR_AMR,
+        )
 
-    def run_summary(self, output_dir: Path) -> Tuple[bool, str]:
-        global _should_exit
-        if _should_exit:
-            return False, "Execution interrupted by user."
+    def run_mge_analysis(self, fasta_files: List[Path], output_dir: Path,
+                         threads: int) -> Tuple[bool, str]:
+        """Run MGE profiling with mobileOG-db.
 
-        summary_module_orig = self.base_dir / "modules" / "kleb_gene_centric_module"
-        if not summary_module_orig.exists():
-            return False, f"Summary module not found: {summary_module_orig}"
+        The resolved mobileOG-db payload is copied into the temp working
+        directory (no symlinks) so the pipeline works on filesystems that
+        do not support symlinks. Actual filenames are passed to
+        MGEFinder.py — it does not expand glob patterns.
+        """
+        module_orig = self.get_module_path("mge_module")
+        if not module_orig.exists():
+            return False, f"mge_module not found: {module_orig}"
 
-        # ✅ Create temporary directory (like other modules)
-        temp_dir = tempfile.mkdtemp(prefix="kleboscope_summary_")
-        self.temp_dirs.add(temp_dir)
-        self.logger.info(f"Temporary directory for summary: {temp_dir}")
+        mge_data = self.get_mge_data_dir()
+        if mge_data is None:
+            return False, (
+                "mobileOG-db not found. Run `kleboscope --pull-mge-db` first, "
+                "or use the Docker/Singularity image (which has it bundled)."
+            )
+        if self.logger:
+            self.logger.info(f"Resolved mobileOG-db: {mge_data}")
+
+        temp_dir = Path(self._mkdtemp(prefix="kleboscope_mge_"))
+        self.temp_dirs.append(str(temp_dir))
+        if self.logger:
+            self.logger.info(f"Temp dir for mge: {temp_dir}")
 
         try:
-            # Copy module to temp
-            shutil.copytree(summary_module_orig, Path(temp_dir) / "kleb_gene_centric_module", dirs_exist_ok=True)
-            summary_work_dir = Path(temp_dir) / "kleb_gene_centric_module"
+            shutil.copytree(
+                module_orig, temp_dir, dirs_exist_ok=True,
+                ignore=shutil.ignore_patterns(
+                    "mge_results", "annotations",
+                    "*.fna", "*.fasta", "*.fa", "*.fsa",
+                    "mobileOG-db", "__pycache__", "*.pyc",
+                ),
+            )
+            self._restore_exec_bits(temp_dir, logger=self.logger)
 
-            # Copy summary files
-            copied = 0
-            missing = 0
-            for target_name, (subdir, filename) in self.summary_files.items():
-                if subdir:
-                    source = output_dir / subdir / filename
-                else:
-                    source = output_dir / filename
-                if source.exists():
-                    shutil.copy2(source, summary_work_dir / target_name)
-                    copied += 1
-                else:
-                    missing += 1
+            beatrix_src = mge_data / "beatrix-1-6_v1_all"
+            if not beatrix_src.exists() and mge_data.name == "beatrix-1-6_v1_all":
+                beatrix_src = mge_data
+            if not beatrix_src.exists():
+                return False, f"beatrix-1-6_v1_all not found under {mge_data}"
 
-            if missing > 0:
-                self.logger.warning(f"Copied {copied} files, {missing} missing.")
+            beatrix_dst = temp_dir / "mobileOG-db" / "beatrix-1-6_v1_all"
+            beatrix_dst.parent.mkdir(parents=True, exist_ok=True)
+            if beatrix_dst.exists():
+                shutil.rmtree(beatrix_dst)
+            shutil.copytree(beatrix_src, beatrix_dst)
+            if self.logger:
+                self.logger.info(f"Copied {beatrix_src} -> {beatrix_dst}")
 
-            # Run reporter in temp dir
-            self.logger.info("Running gene‑centric ultimate reporter...")
-            cmd = [sys.executable, str(summary_work_dir / "kleboscope_ultimate_gene_centric_reporter.py"), "-i", "."]
-            result = subprocess.run(cmd, cwd=summary_work_dir, capture_output=True, text=True)
+            for f in fasta_files:
+                shutil.copy2(f, temp_dir / f.name)
 
-            # Copy results back
-            summary_source = summary_work_dir / self.output_dirs['summary']
-            summary_target = output_dir / self.output_dirs['summary']
-            if summary_source.exists():
-                if summary_target.exists():
-                    shutil.rmtree(summary_target)
-                shutil.copytree(summary_source, summary_target)
-                self.logger.info(f"Gene‑centric reports copied to: {summary_target}")
+            script = temp_dir / "MGEFinder.py"
+            if not script.exists():
+                return False, "MGEFinder.py not found in mge_module"
 
-            return result.returncode == 0, "Gene‑centric summary completed"
+            self.print_info(
+                f"Running MGE analysis on {len(fasta_files)} genome(s)..."
+            )
+            mge_inputs = [f.name for f in fasta_files]
+            cmd = ([sys.executable, str(script), "-i"] + mge_inputs +
+                   ["-d", "mge_results",
+                    "-db_dir", "mobileOG-db/beatrix-1-6_v1_all"])
+            result = subprocess.run(cmd, cwd=temp_dir, capture_output=True, text=True)
+            if not self._log_subprocess_result("MGE", result):
+                return False, f"MGE analysis failed (rc={result.returncode})"
 
-        except Exception as e:
-            self.logger.error(f"Exception in summary: {e}\n{traceback.format_exc()}")
-            return False, f"Exception in summary: {e}"
+            src = temp_dir / "mge_results"
+            if not src.exists():
+                return False, f"MGE results directory not found: {src}"
+
+            dst = self.user_output_dir / DIR_MGE
+            self._copy_module_results(src, dst, skip_dirs={"annotations"})
+
+            expected = [
+                "kleboscope_mge_summary.tsv",
+                "kleboscope_mge_all_hits.tsv",
+                "kleboscope_mge_summary.json",
+                "kleboscope_mge_summary.html",
+            ]
+            missing = [f for f in expected if not (dst / f).exists()]
+            if missing:
+                self.print_warning(
+                    f"MGE ran but these summary files are missing: "
+                    f"{', '.join(missing)}. Reporters may not include MGE data."
+                )
+
+            self.print_success("MGE profiling completed successfully.")
+            return True, "MGE completed successfully"
+
+        except Exception as exc:
+            if self.logger:
+                self.logger.error(traceback.format_exc())
+            return False, f"MGE exception: {exc}"
         finally:
-            if not self.keep_temp:
+            if not self.keep_temp and self.running:
                 shutil.rmtree(temp_dir, ignore_errors=True)
-                self.temp_dirs.discard(temp_dir)
-                self.logger.info(f"Removed temporary directory: {temp_dir}")
+
+    # ------------------------------------------------------------------
+    # Species gate
+    # ------------------------------------------------------------------
+    def _load_species_gate(self, output_dir: Path) -> Optional[Set[str]]:
+        gate_file = output_dir / DIR_QC / "kleboscope_species_passed.txt"
+        if not gate_file.exists():
+            return None
+        with open(gate_file, 'r', encoding='utf-8') as f:
+            names = {line.strip() for line in f if line.strip()}
+        self.logger.info(
+            f"Species gate: {len(names)} sample(s) passed from {gate_file}"
+        )
+        return names
+
+    def _filter_by_species_gate(self, fasta_files: List[Path],
+                                gate: Optional[Set[str]]) -> List[Path]:
+        if gate is None:
+            self.print_warning(
+                "Species gate unavailable. Running ALL samples through "
+                "downstream modules."
+            )
+            return fasta_files
+        passed = [f for f in fasta_files if f.name in gate]
+        excluded = [f for f in fasta_files if f.name not in gate]
+        if excluded:
+            self.print_info(
+                f"Species gate: {len(passed)} of {len(fasta_files)} samples passed"
+            )
+            for f in excluded:
+                self.print_warning(f"  Excluded: {f.name}")
+        else:
+            self.print_success(
+                f"Species gate: all {len(passed)} sample(s) passed"
+            )
+        return passed
+
+    # ------------------------------------------------------------------
+    # Reporter inputs
+    # ------------------------------------------------------------------
+    def _copy_required_files_to_temp(self, src_output_dir: Path,
+                                     temp_work_dir: Path) -> None:
+        """Copy every batch file the two reporters require."""
+        required_files = [
+            (DIR_QC, ["kleboscope_fasta_qc_summary.html",
+                      "kleboscope_fasta_qc_summary.tsv",
+                      "kleboscope_fasta_qc_summary.json"]),
+            (DIR_MLST, ["kleboscope_mlst_summary.html",
+                        "kleboscope_mlst_summary.tsv",
+                        "kleboscope_mlst_summary.json"]),
+            (DIR_KAPTIVE, ["kleboscope_kaptive_summary.html",
+                           "kleboscope_kaptive_summary.tsv",
+                           "kleboscope_kaptive_summary.json"]),
+            (DIR_MGE, ["kleboscope_mge_summary.html",
+                       "kleboscope_mge_all_hits.tsv",
+                       "kleboscope_mge_summary.tsv",
+                       "kleboscope_mge_summary.json"]),
+            (DIR_AMR, ["klebo_amrfinder_summary.tsv",
+                       "klebo_amrfinder_statistics_summary.tsv",
+                       "klebo_amrfinder_summary_report.html",
+                       "klebo_amrfinder_master_summary.json",
+                       "mutation_summary.html",
+                       "mutation_summary.tsv",
+                       "mutation_master_summary.json"]),
+        ]
+
+        abricate_dbs = ['card', 'resfinder', 'argannot', 'vfdb',
+                        'plasmidfinder', 'megares', 'ncbi', 'ecoh',
+                        'ecoli_vf', 'bacmet2']
+        abricate_files = []
+        for db in abricate_dbs:
+            abricate_files.append(f"klebo_{db}_abricate_summary.tsv")
+            abricate_files.append(f"klebo_{db}_summary_report.html")
+        abricate_files.append("klebo_abricate_master_summary.json")
+        required_files.append((DIR_ABRICATE, abricate_files))
+
+        for dirname, filenames in required_files:
+            src_dir = src_output_dir / dirname
+            if not src_dir.exists():
+                self.logger.warning(f"Source directory not found: {src_dir}")
+                continue
+            for fname in filenames:
+                src_file = src_dir / fname
+                if src_file.exists():
+                    shutil.copy2(src_file, temp_work_dir / fname)
+                    self.logger.info(f"Copied {fname} to reporter work dir")
+                else:
+                    self.logger.warning(f"Required file not found: {src_file}")
+
+    # ------------------------------------------------------------------
+    # Reporting
+    # ------------------------------------------------------------------
+    def run_gene_centric_reporter(self, output_dir: Path) -> Tuple[bool, str]:
+        module_orig = self.get_module_path("gene_centric_module")
+        if not module_orig.exists():
+            return False, f"Module not found: {module_orig}"
+
+        temp_dir = Path(self._mkdtemp(prefix="kleboscope_gene_centric_"))
+        self.temp_dirs.append(str(temp_dir))
+        try:
+            work_dir = temp_dir / "gene_centric_module"
+            shutil.copytree(module_orig, work_dir, dirs_exist_ok=True)
+            self._restore_exec_bits(work_dir, logger=self.logger)
+            self._copy_required_files_to_temp(output_dir, work_dir)
+
+            script = work_dir / "kleboscope_ultimate_gene_centric_reporter.py"
+            if not script.exists():
+                return False, (
+                    "kleboscope_ultimate_gene_centric_reporter.py not found"
+                )
+
+            self.print_info("Running gene-centric reporter...")
+            result = subprocess.run(
+                [sys.executable, str(script), "-i", "."],
+                cwd=work_dir, capture_output=True, text=True,
+            )
+            if not self._log_subprocess_result("Gene-centric reporter", result):
+                return False, "Gene-centric reporter failed."
+
+            results_dir = work_dir / DIR_GENE_CENTRIC
+            if not results_dir.exists():
+                return False, f"{DIR_GENE_CENTRIC} not produced"
+
+            dst = output_dir / DIR_GENE_CENTRIC
+            if dst.exists():
+                shutil.rmtree(dst)
+            shutil.copytree(results_dir, dst)
+            self.print_success(f"Gene-centric reports copied to {dst}")
+            return True, "Gene-centric reporter completed successfully"
+        except Exception as exc:
+            self.logger.error(traceback.format_exc())
+            return False, f"Gene-centric reporter exception: {exc}"
+        finally:
+            if not self.keep_temp and self.running:
+                shutil.rmtree(temp_dir, ignore_errors=True)
 
     def run_sample_centric_reporter(self, output_dir: Path) -> Tuple[bool, str]:
-        """Copy summary files and run the sample‑centric reporter in a temporary directory."""
-        global _should_exit
-        if _should_exit:
-            return False, "Execution interrupted by user."
+        module_orig = self.get_module_path("sample_centric_module")
+        if not module_orig.exists():
+            return False, f"Module not found: {module_orig}"
 
-        sample_module_orig = self.base_dir / "modules" / "kleb_sample_centric_module"
-        if not sample_module_orig.exists():
-            return False, f"Sample‑centric module not found: {sample_module_orig}"
-
-        # ✅ Create temporary directory (like other modules)
-        temp_dir = tempfile.mkdtemp(prefix="kleboscope_sample_centric_")
-        self.temp_dirs.add(temp_dir)
-        self.logger.info(f"Temporary directory for sample‑centric reporter: {temp_dir}")
-
+        temp_dir = Path(self._mkdtemp(prefix="kleboscope_sample_centric_"))
+        self.temp_dirs.append(str(temp_dir))
         try:
-            # Copy module to temp
-            shutil.copytree(sample_module_orig, Path(temp_dir) / "kleb_sample_centric_module", dirs_exist_ok=True)
-            sample_work_dir = Path(temp_dir) / "kleb_sample_centric_module"
+            work_dir = temp_dir / "sample_centric_module"
+            shutil.copytree(module_orig, work_dir, dirs_exist_ok=True)
+            self._restore_exec_bits(work_dir, logger=self.logger)
+            self._copy_required_files_to_temp(output_dir, work_dir)
 
-            # Copy all required summary files (from summary_files and sample_centric_summary_files)
-            all_files = {}
-            all_files.update(self.summary_files)
-            all_files.update(self.sample_centric_summary_files)
+            script = work_dir / "kleboscope_ultimate_sample_centric_report.py"
+            if not script.exists():
+                return False, (
+                    "kleboscope_ultimate_sample_centric_report.py not found"
+                )
 
-            copied = 0
-            missing = 0
-            for target_name, (subdir, filename) in all_files.items():
-                if subdir:
-                    source = output_dir / subdir / filename
-                else:
-                    source = output_dir / filename
-                if source.exists():
-                    shutil.copy2(source, sample_work_dir / target_name)
-                    copied += 1
-                else:
-                    missing += 1
+            self.print_info("Running sample-centric reporter...")
+            result = subprocess.run(
+                [sys.executable, str(script), "-i", "."],
+                cwd=work_dir, capture_output=True, text=True,
+            )
+            if not self._log_subprocess_result("Sample-centric reporter", result):
+                return False, "Sample-centric reporter failed."
 
-            if missing > 0:
-                self.logger.warning(f"Copied {copied} files, {missing} missing for sample‑centric reporter.")
+            results_dir = work_dir / DIR_SAMPLE_CENTRIC
+            if not results_dir.exists():
+                return False, f"{DIR_SAMPLE_CENTRIC} not produced"
 
-            # Run sample‑centric reporter in temp dir
-            self.logger.info("Running sample‑centric ultimate reporter...")
-            cmd = [sys.executable, str(sample_work_dir / "kleboscope_ultimate_sample_centric_report.py"), "-i", "."]
-            result = subprocess.run(cmd, cwd=sample_work_dir, capture_output=True, text=True)
-            if result.stdout:
-                self.logger.info(result.stdout)
-            if result.stderr:
-                self.logger.info(result.stderr)
-
-            if _should_exit:
-                return False, "Execution interrupted after reporter completion."
-
-            # Copy results back to output directory
-            sample_source = sample_work_dir / self.output_dirs['sample_centric']
-            sample_target = output_dir / self.output_dirs['sample_centric']
-            if sample_source.exists():
-                if sample_target.exists():
-                    shutil.rmtree(sample_target)
-                shutil.copytree(sample_source, sample_target)
-                self.logger.info(f"Sample‑centric reports copied to: {sample_target}")
-                files = list(sample_target.glob("*"))
-                html_count = len([f for f in files if f.suffix == '.html'])
-                json_count = len([f for f in files if f.suffix == '.json'])
-                csv_count = len([f for f in files if f.suffix == '.csv'])
-                self.logger.info(f"📊 {html_count} HTML, {json_count} JSON, {csv_count} CSV files")
-            else:
-                self.logger.warning(f"Sample‑centric reports directory not found: {sample_source}")
-
-            return result.returncode == 0, "Sample‑centric summary completed"
-
-        except Exception as e:
-            self.logger.error(f"Exception in sample‑centric reporter: {e}\n{traceback.format_exc()}")
-            return False, f"Exception in sample‑centric reporter: {e}"
+            dst = output_dir / DIR_SAMPLE_CENTRIC
+            if dst.exists():
+                shutil.rmtree(dst)
+            shutil.copytree(results_dir, dst)
+            self.print_success(f"Sample-centric reports copied to {dst}")
+            return True, "Sample-centric reporter completed successfully"
+        except Exception as exc:
+            self.logger.error(traceback.format_exc())
+            return False, f"Sample-centric reporter exception: {exc}"
         finally:
-            if not self.keep_temp:
+            if not self.keep_temp and self.running:
                 shutil.rmtree(temp_dir, ignore_errors=True)
-                self.temp_dirs.discard(temp_dir)
-                self.logger.info(f"Removed temporary directory: {temp_dir}")
 
-    def run_complete_analysis(self, input_path: str, output_dir: str, threads: int = 1,
-                              skip_modules: Dict[str, bool] = None,
-                              skip_summary: bool = False,
-                              skip_sample_centric: bool = False,
-                              update_amr_db_only: bool = False,
-                              force_update_amr: bool = False,
-                              amr_min_identity: Optional[float] = None,
-                              amr_min_coverage: Optional[float] = None,
-                              amr_skip_mutations: bool = False,
-                              abricate_min_id: Optional[float] = None,
-                              abricate_min_cov: Optional[float] = None):
-        if update_amr_db_only or force_update_amr:
-            self.update_amr_database(force=force_update_amr)
+    # ------------------------------------------------------------------
+    # Final consolidation + pruning
+    # ------------------------------------------------------------------
+    def copy_summary_results_to_final_directory(self, output_dir: Path) -> None:
+        try:
+            self.print_info("Consolidating results into final report directory...")
+            final_dir = output_dir / DIR_FINAL
+            final_dir.mkdir(parents=True, exist_ok=True)
+
+            for reporter_dir in (DIR_GENE_CENTRIC, DIR_SAMPLE_CENTRIC):
+                src = output_dir / reporter_dir
+                if src.exists() and src.is_dir():
+                    target = final_dir / reporter_dir
+                    if target.exists():
+                        shutil.rmtree(target)
+                    shutil.copytree(src, target)
+                    self.print_info(f"  ▸ Copied {reporter_dir}/")
+
+            self.print_success(f"Final report assembled at {final_dir}")
+        except Exception as exc:
+            self.print_error(f"Error consolidating final report: {exc}")
+
+    def _cleanup_top_level_duplicates(self, output_path: Path) -> None:
+        removed = 0
+        for dirname in (DIR_GENE_CENTRIC, DIR_SAMPLE_CENTRIC):
+            d = output_path / dirname
+            if d.exists():
+                shutil.rmtree(d, ignore_errors=True)
+                removed += 1
+        if removed:
+            self.logger.info(f"Removed {removed} duplicate top-level director(ies)")
+
+    def _finalize_output_by_report_level(self, output_path: Path) -> None:
+        if self.report_level == 'full':
+            self.print_info("Report level: full (all files retained)")
             return
 
+        final_dir = output_path / DIR_FINAL
+        if not final_dir.exists() or not any(final_dir.iterdir()):
+            self.print_warning(
+                "Kleboscope_final_report/ is missing or empty; skipping prune."
+            )
+            return
+
+        if self.report_level == 'final':
+            removed = 0
+            for name in ALL_MODULE_DIRS:
+                d = output_path / name
+                if d.exists():
+                    shutil.rmtree(d, ignore_errors=True)
+                    removed += 1
+            self.print_success(
+                f"Report level: final — removed {removed} module directories"
+            )
+            return
+
+        if self.report_level == 'summary':
+            removed = 0
+            for name in ALL_MODULE_DIRS:
+                d = output_path / name
+                if not d.exists():
+                    continue
+                for item in list(d.iterdir()):
+                    if item.is_dir():
+                        shutil.rmtree(item, ignore_errors=True)
+                        removed += 1
+            if removed:
+                self.print_success(
+                    f"Report level: summary — removed {removed} per-sample folders"
+                )
+            else:
+                self.print_success(
+                    "Report level: summary — batch summaries retained"
+                )
+
+    # ------------------------------------------------------------------
+    # Sequential driver
+    # ------------------------------------------------------------------
+    def run_sequential_analyses(
+        self,
+        fasta_files: List[Path],
+        output_dir: Path,
+        threads: int,
+        skip_modules: Dict[str, bool],
+        amr_min_identity: Optional[float],
+        amr_min_coverage: Optional[float],
+        amr_skip_mutations: bool,
+        amr_force_update: bool,
+        abricate_min_id: int,
+        abricate_min_cov: int,
+    ) -> Dict[str, bool]:
+        results: Dict[str, bool] = {}
+        downstream_files = fasta_files
+
+        if not skip_modules.get('qc', False):
+            self.display_module_header("FASTA QC", self.module_subtitles['qc'])
+            ok, _ = self._run_timed(
+                "QC", self.run_qc_analysis, fasta_files, output_dir, threads,
+            )
+            results['QC'] = ok
+            if ok:
+                gate = self._load_species_gate(output_dir)
+                downstream_files = self._filter_by_species_gate(fasta_files, gate)
+                if not downstream_files:
+                    self.print_error(
+                        "No samples passed species gate. Downstream modules skipped."
+                    )
+                    for name in ('MLST', 'Kaptive', 'ABRicate', 'AMRFinderPlus', 'MGE'):
+                        results[name] = False
+                    return results
+            else:
+                self.print_warning(
+                    "FASTA QC failed; species gate unavailable. All samples flow through."
+                )
+            self.display_random_quote()
+
+        if not skip_modules.get('mlst', False):
+            self.display_module_header("MLST", self.module_subtitles['mlst'])
+            results['MLST'], _ = self._run_timed(
+                "MLST", self.run_mlst_analysis,
+                downstream_files, output_dir, threads,
+            )
+            self.display_random_quote()
+
+        if not skip_modules.get('kaptive', False):
+            self.display_module_header("Kaptive", self.module_subtitles['kaptive'])
+            results['Kaptive'], _ = self._run_timed(
+                "Kaptive", self.run_kaptive_analysis,
+                downstream_files, output_dir, threads,
+            )
+            self.display_random_quote()
+
+        if not skip_modules.get('abricate', False):
+            self.display_module_header("ABRicate", self.module_subtitles['abricate'])
+            results['ABRicate'], _ = self._run_timed(
+                "ABRicate", self.run_abricate_analysis,
+                downstream_files, output_dir, threads,
+                abricate_min_id, abricate_min_cov,
+            )
+            self.display_random_quote()
+
+        if not skip_modules.get('amr', False):
+            self.display_module_header(
+                "AMRFinderPlus", self.module_subtitles['amr'])
+            results['AMRFinderPlus'], _ = self._run_timed(
+                "AMRFinderPlus", self.run_amr_analysis,
+                downstream_files, output_dir, threads,
+                amr_min_identity, amr_min_coverage,
+                amr_skip_mutations, amr_force_update,
+            )
+            self.display_random_quote()
+
+        if not skip_modules.get('mge', False):
+            self.display_module_header("MGE", self.module_subtitles['mge'])
+            results['MGE'], _ = self._run_timed(
+                "MGE", self.run_mge_analysis,
+                downstream_files, output_dir, threads,
+            )
+            self.display_random_quote()
+
+        return results
+
+    # ------------------------------------------------------------------
+    # Main pipeline
+    # ------------------------------------------------------------------
+    def run_complete_analysis(
+        self,
+        input_path: str,
+        output_dir: str,
+        threads: int = 2,
+        skip_modules: Optional[Dict[str, bool]] = None,
+        skip_gene_centric: bool = False,
+        skip_sample_centric: bool = False,
+        update_amr_only: bool = False,
+        force_update_amr_only: bool = False,
+        pull_mlst_only: bool = False,
+        update_mlst_only: bool = False,
+        pull_mge_only: bool = False,
+        amr_min_identity: Optional[float] = None,
+        amr_min_coverage: Optional[float] = None,
+        amr_skip_mutations: bool = False,
+        amr_force_update: bool = False,
+        abricate_min_id: int = 80,
+        abricate_min_cov: int = 80,
+        clean_output: bool = False,
+        report_level: str = 'summary',
+    ) -> bool:
+        """Execute the complete Kleboscope pipeline (or a db-management mode)."""
         if skip_modules is None:
             skip_modules = {}
+        self.report_level = report_level
+
+        db_only_modes = [
+            (update_amr_only, "update_amr", self.update_amr_database, {}),
+            (force_update_amr_only, "update_amr", self.update_amr_database,
+             {'force': True}),
+            (pull_mlst_only, "mlst_pull", self.pull_mlst_database, {}),
+            (update_mlst_only, "mlst_update", self.update_mlst_database, {}),
+            (pull_mge_only, "mge_pull", self.pull_mge_database, {}),
+        ]
+        for enabled, label, fn, kwargs in db_only_modes:
+            if enabled:
+                temp_log = Path(self._mkdtemp(prefix=f"kleboscope_{label}_"))
+                self.temp_dirs.append(str(temp_log))
+                self.setup_logging(temp_log)
+                ok = fn(**kwargs)
+                if not self.keep_temp:
+                    shutil.rmtree(temp_log, ignore_errors=True)
+                return ok
 
         start_time = datetime.now()
         self.display_banner()
-        output_path = Path(output_dir)
-        output_path.mkdir(parents=True, exist_ok=True)
-        self.user_output_dir = output_path
 
-        log_file = output_path / "kleboscope_run.log"
-        self._setup_logging(log_file)
+        output_path = Path(output_dir)
+        if clean_output and output_path.exists():
+            self.print_info(f"Cleaning output directory: {output_path}")
+            shutil.rmtree(output_path)
+        output_path.mkdir(parents=True, exist_ok=True)
+        self.setup_logging(output_path)
 
         fasta_files = self.find_fasta_files(input_path)
         if not fasta_files:
-            self.print_error("No FASTA files found! Analysis stopped.")
-            return
-        self.print_success(f"Starting analysis of {len(fasta_files)} K. pneumoniae samples")
+            self.print_error("No FASTA files found. Analysis stopped.")
+            return False
 
-        # Create output subdirectories
-        for subdir in self.output_dirs.values():
-            (output_path / subdir).mkdir(exist_ok=True)
+        self.print_success(
+            f"Starting analysis of {len(fasta_files)} K. pneumoniae genomes"
+        )
 
-        self.print_header("ANALYSIS PLAN", "Modules to be executed")
+        for sub in self.output_dirs.values():
+            (output_path / sub).mkdir(exist_ok=True)
+
+        if not skip_modules.get('mge', False) and self.get_mge_data_dir() is None:
+            self.print_warning(
+                "MGE is enabled but mobileOG-db is not installed. "
+                "Run `kleboscope --pull-mge-db` first, or add --skip-mge."
+            )
+
         plan = [
-            ("QC", not skip_modules.get('qc', False)),
-            ("MLST", not skip_modules.get('mlst', False)),
-            ("Kaptive", not skip_modules.get('kaptive', False)),
-            ("ABRicate", not skip_modules.get('abricate', False)),
-            ("AMR", not skip_modules.get('amr', False)),
-            ("Gene‑centric Reporter", not skip_summary),
-            ("Sample‑centric Reporter", not skip_sample_centric),
+            ("FASTA QC",       not skip_modules.get('qc', False)),
+            ("MLST",           not skip_modules.get('mlst', False)),
+            ("Kaptive",        not skip_modules.get('kaptive', False)),
+            ("ABRicate",       not skip_modules.get('abricate', False)),
+            ("AMRFinderPlus",  not skip_modules.get('amr', False)),
+            ("MGE",            not skip_modules.get('mge', False)),
+            ("Gene-Centric",   not skip_gene_centric),
+            ("Sample-Centric", not skip_sample_centric),
         ]
+        self.print_header("Analysis Plan", "Modules to be executed")
         for analysis, enabled in plan:
-            if enabled:
-                print(f"   {Color.BRIGHT_GREEN}✅ ENABLED{Color.RESET} - {analysis}")
-            else:
-                print(f"   {Color.YELLOW}⏸️  SKIPPED{Color.RESET} - {analysis}")
-        if amr_min_identity is not None:
-            print(f"   AMR min identity: {amr_min_identity}")
-        if amr_min_coverage is not None:
-            print(f"   AMR min coverage: {amr_min_coverage}")
-        if amr_skip_mutations:
-            print("   AMR mutation reporting: SKIPPED")
-        if abricate_min_id is not None:
-            print(f"   ABRicate min identity: {abricate_min_id}")
-        if abricate_min_cov is not None:
-            print(f"   ABRicate min coverage: {abricate_min_cov}")
-        print()
+            status = (f"{Color.BRIGHT_GREEN}✓ ENABLED{Color.RESET}" if enabled
+                      else f"{Color.YELLOW}⏸ SKIPPED{Color.RESET}")
+            print(f"   {status} - {analysis}")
+        print(f"\n   Report level: {self.report_level}\n")
 
-        # First batch: QC, MLST, Kaptive
-        tasks = []
-        if not skip_modules.get('qc', False):
-            tasks.append(("QC", self.run_qc, (fasta_files, output_path, threads)))
-        if not skip_modules.get('mlst', False):
-            tasks.append(("MLST", self.run_mlst, (fasta_files, output_path, threads)))
-        if not skip_modules.get('kaptive', False):
-            tasks.append(("Kaptive", self.run_kaptive, (fasta_files, output_path, threads)))
+        analysis_results = self.run_sequential_analyses(
+            fasta_files, output_path, threads, skip_modules,
+            amr_min_identity, amr_min_coverage,
+            amr_skip_mutations, amr_force_update,
+            abricate_min_id, abricate_min_cov,
+        )
 
-        if tasks:
-            self.print_info(f"Running {len(tasks)} analyses in parallel...")
-            results = {}
-            with ThreadPoolExecutor(max_workers=len(tasks)) as executor:
-                future_to_name = {executor.submit(func, *args): name for name, func, args in tasks}
-                for future in as_completed(future_to_name):
-                    name = future_to_name[future]
-                    try:
-                        success, output = future.result()
-                        results[name] = (success, output)
-                    except Exception as e:
-                        results[name] = (False, f"Exception: {e}")
-
-            for name, _, _ in tasks:
-                success, output = results.get(name, (False, "No result"))
-                subtitle = self.module_subtitles.get(name, "")
-                self.print_header(f"{name} Analysis", subtitle)
-                if success:
-                    self.print_success(f"✅ {name} completed")
-                else:
-                    self.print_error(f"❌ {name} failed")
-                self.display_random_quote()
-        else:
-            self.print_info("No analyses in first batch (all skipped).")
-
-        # ABRicate
-        if not skip_modules.get('abricate', False):
-            self.print_header("ABRICATE ANALYSIS", self.module_subtitles['ABRicate'])
-            success, output = self.run_abricate(fasta_files, output_path, threads,
-                                                min_id=abricate_min_id, min_cov=abricate_min_cov)
-            if success:
-                self.print_success("✅ ABRicate completed")
-            else:
-                self.print_error("❌ ABRicate failed")
-            self.display_random_quote()
-        else:
-            self.print_info("Skipping ABRicate analysis.")
-
-        # AMR
-        if not skip_modules.get('amr', False):
-            self.print_header("AMR ANALYSIS", self.module_subtitles['AMR'])
-            success, output = self.run_amr(fasta_files, output_path, threads,
-                                           min_identity=amr_min_identity,
-                                           min_coverage=amr_min_coverage,
-                                           skip_mutations=amr_skip_mutations)
-            if success:
-                self.print_success("✅ AMR completed")
-            else:
-                self.print_error("❌ AMR failed")
-            self.display_random_quote()
-        else:
-            self.print_info("Skipping AMR analysis.")
-
-        # Gene‑centric summary
-        if not skip_summary:
-            self.print_header("ULTIMATE REPORTER (Gene‑Centric)", self.module_subtitles['Ultimate Reporter'])
-            success, output = self.run_summary(output_path)
-            if success:
-                self.print_success("✅ Gene‑centric reporter completed")
-            else:
-                self.print_warning("Gene‑centric reporter had issues")
+        if not skip_gene_centric:
+            self.display_module_header(
+                "Gene-Centric Reporter", self.module_subtitles['gene_centric'])
+            analysis_results['Gene-Centric'], _ = self._run_timed(
+                "Gene-Centric Reporter",
+                self.run_gene_centric_reporter, output_path,
+            )
             self.display_random_quote()
 
-        # Sample‑centric summary
         if not skip_sample_centric:
-            self.print_header("SAMPLE‑CENTRIC REPORTER", self.module_subtitles['Sample Centric Reporter'])
-            success, output = self.run_sample_centric_reporter(output_path)
-            if success:
-                self.print_success("✅ Sample‑centric reporter completed")
-            else:
-                self.print_warning("Sample‑centric reporter had issues")
+            self.display_module_header(
+                "Sample-Centric Reporter", self.module_subtitles['sample_centric'])
+            analysis_results['Sample-Centric'], _ = self._run_timed(
+                "Sample-Centric Reporter",
+                self.run_sample_centric_reporter, output_path,
+            )
             self.display_random_quote()
 
-        # Final report
-        analysis_time = datetime.now() - start_time
-        self.print_header("ANALYSIS COMPLETE", f"Time elapsed: {str(analysis_time).split('.')[0]}")
-        self.print_success(f"🎉 Analysis complete! Results in: {output_path}")
+        self.copy_summary_results_to_final_directory(output_path)
+        self._cleanup_top_level_duplicates(output_path)
+        self._finalize_output_by_report_level(output_path)
 
-        for subdir in sorted(output_path.iterdir()):
-            if subdir.is_dir():
-                file_count = len(list(subdir.glob("*")))
-                self.print_info(f"  📁 {subdir.name} ({file_count} files)")
+        elapsed = datetime.now() - start_time
+        elapsed_str = str(elapsed).split('.')[0]
 
-        print()
-        print(f"{Color.BRIGHT_YELLOW}📚 Please cite Kleboscope:{Color.RESET}")
-        print(f"   Beckley, B., et al. Kleboscope: a gene‑centric, species‑optimized computational pipeline for comprehensive")
-        print(f"   Klebsiella pneumoniae genomic surveillance. (2026).")
-        print(f"   {Color.BRIGHT_CYAN}https://github.com/bbeckley-hub/kleboscope{Color.RESET}")
-        print()
-        print(f"{Color.BRIGHT_YELLOW}💡 Support & Contributions:{Color.RESET}")
-        print(f"   • Issues & feature requests: https://github.com/bbeckley-hub/kleboscope/issues")
-        print(f"   • Email: brownbeckley94@gmail.com")
+        self.print_header("Analysis Complete", f"Time elapsed: {elapsed_str}")
+
+        if self.module_times:
+            for label, secs in sorted(self.module_times.items(), key=lambda x: -x[1]):
+                mins = int(secs // 60)
+                rem = secs % 60
+                time_str = f"{mins}m {rem:.1f}s" if mins else f"{rem:.1f}s"
+                print(f"   {Color.BRIGHT_CYAN}{label:<28}{Color.RESET} {time_str}")
+
+        successful = sum(analysis_results.values())
+        total = len(analysis_results)
+        if successful == total:
+            self.print_success(f"All {total} analyses completed successfully.")
+        else:
+            self.print_warning(
+                f"{successful}/{total} analyses completed successfully."
+            )
+
+        print("\n📁 FINAL OUTPUT:")
+        for item in sorted(output_path.glob('*')):
+            if item.is_dir():
+                count = len(list(item.rglob('*')))
+                print(f"   📂 {item.name}/ ({count} items)")
+            else:
+                print(f"   📄 {item.name}")
+
+        print("\n📚 Citation:")
+        for line in CITATION_LINES:
+            print(f"   {line}")
         print()
 
         self.display_random_quote()
-        self.logger.info(f"Analysis completed. Results in: {output_path}")
 
-    def _setup_logging(self, log_file: Path):
-        self.logger = logging.getLogger("Kleboscope")
-        self.logger.setLevel(logging.INFO)
-        if self.logger.handlers:
-            self.logger.handlers.clear()
-        fh = logging.FileHandler(log_file, mode='w')
-        fh.setLevel(logging.INFO)
-        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-        fh.setFormatter(formatter)
-        self.logger.addHandler(fh)
-        self.logger.info(f"Kleboscope v{__version__} started")
-        self.logger.info(f"Log file: {log_file}")
+        if self.warnings:
+            print(f"{Color.BRIGHT_YELLOW}Warnings encountered:{Color.RESET}")
+            for w in self.warnings:
+                self.print_info(f"  - {w}")
+        if self.errors:
+            print(f"{Color.BRIGHT_RED}Errors encountered:{Color.RESET}")
+            for e in self.errors:
+                self.print_info(f"  - {e}")
 
-    def display_banner(self):
-        banner = f"""{Color.BOLD}{Color.BRIGHT_MAGENTA}
-{'='*80}
-{' '*20}🦠 KLEBOSCOPE - K. pneumoniae Genomic Analysis Pipeline v{__version__}
-{'='*80}
-{Color.RESET}{Color.BRIGHT_CYAN}
-Complete K. pneumoniae genomic analysis pipeline
-MLST | K/O Locus | AMR | Virulence | Plasmid | Quality Control | Summary Reports
-
-Critical Genes Tracked:
-🔴 Carbapenemases (KPC, NDM, OXA-48)
-🟠 Colistin (mcr)
-🟡 Tigecycline (tetX)
-🟢 ICEKp Markers (ybt, clb, iro, rmp)
-🔵 Virulence Plasmid Markers (iro, iuc, rmp, rmpA2)
-🟣 Biocides & Heavy Metals (qac, sil, mer, ars, pco)
-⚪ Adhesins (fim, mrk, ecp)
-🔶 Secretion Systems (tss)
-💧 Siderophores
-🧪 Toxins
-{Color.RESET}{Color.DIM}
-Author: Brown Beckley | Email: brownbeckley94@gmail.com
-Affiliation: University of Ghana Medical School - Department of Medical Biochemistry
-Version: {__version__}
-GitHub: https://github.com/bbeckley-hub/kleboscope
-Citation: Beckley, B., et al. Kleboscope: a gene‑centric, species‑optimized computational pipeline for comprehensive 
-          Klebsiella pneumoniae genomic surveillance. (2026).
-{'='*80}{Color.RESET}
-"""
-        print(banner)
-
-    def print_colored_help(self):
-        self.display_banner()
-        print(f"{Color.BRIGHT_YELLOW}USAGE:{Color.RESET}")
-        print(f"  {Color.GREEN}kleboscope{Color.RESET} {Color.CYAN}-i INPUT -o OUTPUT{Color.RESET} [OPTIONS]")
-        print(f"  {Color.GREEN}kleboscope --update-amr-db{Color.RESET}  (Update AMR database incrementally)")
-        print(f"  {Color.GREEN}kleboscope --force-update-amr-db{Color.RESET} (Force full AMR database update)")
-        print(f"  {Color.GREEN}kleboscope --version{Color.RESET} Show version and exit")
-        print()
-        print(f"{Color.BRIGHT_YELLOW}REQUIRED ARGUMENTS (for analysis):{Color.RESET}")
-        print(f"  {Color.GREEN}-i, --input{Color.RESET} INPUT    Input FASTA file(s) – supports glob patterns like \"*.fna\"")
-        print(f"  {Color.GREEN}-o, --output{Color.RESET} OUTPUT  Output directory for results\n")
-        print(f"{Color.BRIGHT_YELLOW}OPTIONAL ARGUMENTS:{Color.RESET}")
-        print(f"  {Color.GREEN}-h, --help{Color.RESET}            Show this help message")
-        print(f"  {Color.GREEN}-t, --threads{Color.RESET} THREADS  Number of threads (default: 2)")
-        print(f"  {Color.GREEN}--version{Color.RESET}               Show version and exit")
-        print(f"  {Color.GREEN}--update-amr-db{Color.RESET}         Update AMRfinderPlus database incrementally and exit")
-        print(f"  {Color.GREEN}--force-update-amr-db{Color.RESET}  Force full AMR database update (overwrites old) and exit")
-        print(f"  {Color.GREEN}--keep-temp{Color.RESET}             Do not delete temporary directories (for debugging)")
-        print()
-        print(f"{Color.BRIGHT_YELLOW}AMR FINDER PLUS FLAGS:{Color.RESET}")
-        print(f"  {Color.GREEN}--amr-min-identity{Color.RESET}   Minimum identity for AMR hits (0..1)")
-        print(f"  {Color.GREEN}--amr-min-coverage{Color.RESET}   Minimum coverage for AMR hits (0..1)")
-        print(f"  {Color.GREEN}--skip-amr-mutations{Color.RESET}     Disable point mutation reporting in AMR (enabled by default)")
-        print()
-        print(f"{Color.BRIGHT_YELLOW}ABRICATE FLAGS:{Color.RESET}")
-        print(f"  {Color.GREEN}--abricate-min-id{Color.RESET}   Minimum identity for ABRicate hits (default: 80)")
-        print(f"  {Color.GREEN}--abricate-min-cov{Color.RESET}   Minimum coverage for ABRicate hits (default: 80)")
-        print()
-        print(f"{Color.BRIGHT_YELLOW}SKIP OPTIONS:{Color.RESET}")
-        print(f"  {Color.GREEN}--skip-qc{Color.RESET}               Skip QC analysis")
-        print(f"  {Color.GREEN}--skip-mlst{Color.RESET}             Skip MLST analysis")
-        print(f"  {Color.GREEN}--skip-kaptive{Color.RESET}          Skip Kaptive analysis")
-        print(f"  {Color.GREEN}--skip-abricate{Color.RESET}         Skip ABRicate analysis")
-        print(f"  {Color.GREEN}--skip-amr{Color.RESET}              Skip AMR analysis")
-        print(f"  {Color.GREEN}--skip-summary{Color.RESET}          Skip gene‑centric ultimate reporter")
-        print(f"  {Color.GREEN}--skip-sample-centric{Color.RESET}   Skip sample‑centric ultimate reporter\n")
-        print(f"{Color.BRIGHT_YELLOW}EXAMPLES:{Color.RESET}")
-        print(f"  {Color.GREEN}kleboscope -i \"*.fna\" -o results{Color.RESET}")
-        print(f"  {Color.GREEN}kleboscope -i \"*.fasta\" -o results --threads 4 --amr-min-identity 0.95 --amr-min-coverage 0.9{Color.RESET}")
-        print(f"  {Color.GREEN}kleboscope -i genome.fna -o results --skip-qc --skip-abricate{Color.RESET}")
-        print(f"  {Color.GREEN}kleboscope -i \"*.fna\" -o results --abricate-min-id 85 --abricate-min-cov 90{Color.RESET}")
-        print(f"  {Color.GREEN}kleboscope --update-amr-db{Color.RESET}   # Manually update AMR database\n")
-        print(f"{Color.BRIGHT_YELLOW}Supported FASTA formats:{Color.RESET} {Color.CYAN}.fna, .fasta, .fa, .fn{Color.RESET}")
-        print(f"{Color.BRIGHT_YELLOW}Note:{Color.RESET} Run kleboscope --update-amr-db or --force-update-amr-db (Mandatory).")
-        print(f"{Color.BRIGHT_YELLOW}RECOMMENDED:{Color.RESET} run abricate --setupdb to ensure ABRicate databases are present.")
+        return successful == total
 
 
 def main():
-    if '--version' in sys.argv:
-        print(f"kleboscope {__version__}")
-        sys.exit(0)
-
-    if '-h' in sys.argv or '--help' in sys.argv:
-        temp = KleboscopeOrchestrator()
-        temp.print_colored_help()
-        sys.exit(0)
-
     parser = argparse.ArgumentParser(
-        description="Kleboscope: Complete K. pneumoniae typing pipeline with parallel execution",
-        add_help=False,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=(
+            f"{Color.BRIGHT_YELLOW}Kleboscope: Complete K. pneumoniae "
+            f"Typing Pipeline{Color.RESET}"
+        ),
+        formatter_class=ColoredHelpFormatter,
+        epilog=f"""
+{Color.BOLD}{Color.BRIGHT_GREEN}EXAMPLES:{Color.RESET}
+  kleboscope -i genome.fna -o results/
+  kleboscope -i "*.fna" -o batch_results --threads 8
+  kleboscope -i "*.fna" -o results --report-level final
+  kleboscope -i "*.fna" -o results --tmpdir /scratch/user/kleboscope_tmp
+
+{Color.BOLD}{Color.BRIGHT_GREEN}DATABASE SETUP (First-time users):{Color.RESET}
+  1. kleboscope --update-amr-db       (AMRFinderPlus database)
+  2. kleboscope --pull-mlst-db        (MLST scheme, from GitHub)
+  3. kleboscope --pull-mge-db         (mobileOG-db, ~300 MB — conda users only)
+  4. abricate --setupdb               (ABRicate databases)
+
+{Color.BRIGHT_YELLOW}MLST DATABASE MANAGEMENT:{Color.RESET}
+  --pull-mlst-db     : Download pre-built P. aeruginosa MLST scheme from the
+                       GitHub repo. No API key required.
+  --update-mlst-db   : Refresh the MLST scheme directly from PubMLST using
+                       mlstdb. Requires a one-time PubMLST API key setup:
+                         1. Register at https://pubmlst.org/site-accounts
+                         2. Generate an API key in your profile
+                         3. Run: mlstdb connect --db pubmlst --api-key
+                         4. Paste your key when prompted
+
+{Color.BOLD}{Color.BRIGHT_GREEN}REPORT LEVELS:{Color.RESET}
+  final   - Only Kleboscope_final_report/ is kept.
+  summary - (default) Final report + batch summaries; per-sample folders pruned.
+  full    - Everything is kept, including per-sample HTMLs.
+
+{Color.BOLD}{Color.BRIGHT_GREEN}ENVIRONMENT OVERRIDES (HPC / Docker):{Color.RESET}
+  KLEBOSCOPE_SHARED_DATA          Writable data root (default: ~/.local/share/kleboscope)
+  KLEBOSCOPE_TMPDIR               Temp directory root (or use --tmpdir)
+  KLEBOSCOPE_MLST_DB              MLST database directory
+  KLEBOSCOPE_MLST_MODULE_PATH     MLST module root (bin/, db/, scripts/)
+  KLEBOSCOPE_MLST_PULL_URL        Override MLST pull URL
+  KLEBOSCOPE_MGE_DATA_DIR         mobileOG-db data directory
+  KLEBOSCOPE_MGE_MODULE_PATH      MGE module root
+  KLEBOSCOPE_MGE_PULL_URL         Override mobileOG-db pull URL
+
+{Color.BOLD}{Color.BRIGHT_GREEN}SUPPORTED FASTA FORMATS:{Color.RESET} .fna, .fasta, .fa
+
+{Color.BOLD}{Color.BRIGHT_GREEN}CONTACT:{Color.RESET}
+  {AUTHOR_NAME} <{AUTHOR_EMAIL}>
+  {AUTHOR_AFFILIATION}
+"""
     )
-    parser.add_argument('-i', '--input', help='Input FASTA file(s) – can use glob patterns like "*.fna" or "*.fasta"')
-    parser.add_argument('-o', '--output', help='Output directory for all results')
-    parser.add_argument('-t', '--threads', type=int, default=2, help='Number of threads (default: 2)')
 
-    parser.add_argument('--amr-min-identity', type=float, help='Minimum identity for AMR hits (0..1)')
-    parser.add_argument('--amr-min-coverage', type=float, help='Minimum coverage for AMR hits (0..1)')
-    parser.add_argument('--skip-amr-mutations', action='store_true', help='Disable point mutation reporting in AMR (enabled by default)')
+    parser.add_argument('-i', '--input',
+                        help='Input FASTA file(s) - can use glob patterns like "*.fna"')
+    parser.add_argument('-o', '--output',
+                        help='Output directory for all results')
+    parser.add_argument('-t', '--threads', type=int, default=2,
+                        help='Number of threads (default: 2)')
+    parser.add_argument('--quiet', action='store_true',
+                        help='Suppress all non-error console output')
+    parser.add_argument('--keep-temp', action='store_true',
+                        help='Do not delete temporary directories (for debugging)')
+    parser.add_argument('--tmpdir',
+                        help='Override temporary directory root (HPC/Docker)')
+    parser.add_argument('--clean-output', action='store_true',
+                        help='Delete output directory before analysis')
 
-    parser.add_argument('--abricate-min-id', type=float, help='Minimum identity for ABRicate hits (default: 80)')
-    parser.add_argument('--abricate-min-cov', type=float, help='Minimum coverage for ABRicate hits (default: 80)')
+    parser.add_argument('--report-level',
+                        choices=['final', 'summary', 'full'],
+                        default='summary',
+                        help='Controls which files are kept after the run '
+                             '(default: summary).')
 
-    parser.add_argument('--skip-qc', action='store_true', help='Skip QC analysis')
-    parser.add_argument('--skip-mlst', action='store_true', help='Skip MLST analysis')
-    parser.add_argument('--skip-kaptive', action='store_true', help='Skip Kaptive analysis')
-    parser.add_argument('--skip-abricate', action='store_true', help='Skip ABRicate analysis')
-    parser.add_argument('--skip-amr', action='store_true', help='Skip AMR analysis')
-    parser.add_argument('--skip-summary', action='store_true', help='Skip gene‑centric ultimate reporter')
-    parser.add_argument('--skip-sample-centric', action='store_true', help='Skip sample‑centric ultimate reporter')
+    parser.add_argument('-v', '--version', action='version',
+                        version=f'kleboscope {__version__}')
 
-    parser.add_argument('--update-amr-db', action='store_true', help='Manually update AMRfinderPlus database incrementally and exit')
-    parser.add_argument('--force-update-amr-db', action='store_true', help='Force full AMRfinderPlus database update (overwrites old) and exit')
+    parser.add_argument('--update-amr-db', action='store_true',
+                        help='Update AMRFinderPlus database (incremental) and exit')
+    parser.add_argument('--force-update-amr-db', action='store_true',
+                        help='Force complete AMRFinderPlus database update and exit')
+    parser.add_argument('--pull-mlst-db', action='store_true',
+                        help='Install the Klebsiella MLST database '
+                             '(runs database.sh or downloads prebuilt archive) and exit')
+    parser.add_argument('--update-mlst-db', action='store_true',
+                        help='Update the Klebsiella MLST database from PubMLST '
+                             '(requires mlstdb) and exit')
+    parser.add_argument('--pull-mge-db', action='store_true',
+                        help='Download the mobileOG-db payload (~300 MB) from GitHub '
+                             'and exit')
 
-    parser.add_argument('--keep-temp', action='store_true', help='Do not delete temporary directories (for debugging)')
+    parser.add_argument('--amr-min-identity', type=float,
+                        help='Minimum identity for AMR hits (0..1)')
+    parser.add_argument('--amr-min-coverage', type=float,
+                        help='Minimum coverage for AMR hits (0..1)')
+    parser.add_argument('--skip-amr-mutations', action='store_true',
+                        help='Disable point mutation reporting in AMR')
+    parser.add_argument('--amr-force-update', action='store_true',
+                        help='Force AMR database update before analysis')
+
+    parser.add_argument('--abricate-min-id', type=int, default=80,
+                        help='Minimum identity for ABRicate hits (default: 80)')
+    parser.add_argument('--abricate-min-cov', type=int, default=80,
+                        help='Minimum coverage for ABRicate hits (default: 80)')
+
+    skip = parser.add_argument_group('Skip options')
+    skip.add_argument('--skip-qc', action='store_true', help='Skip FASTA QC')
+    skip.add_argument('--skip-mlst', action='store_true', help='Skip MLST')
+    skip.add_argument('--skip-kaptive', action='store_true', help='Skip Kaptive')
+    skip.add_argument('--skip-abricate', action='store_true', help='Skip ABRicate')
+    skip.add_argument('--skip-amr', action='store_true', help='Skip AMRFinderPlus')
+    skip.add_argument('--skip-mge', action='store_true', help='Skip MGE profiling')
+    skip.add_argument('--skip-gene-centric', action='store_true',
+                      help='Skip gene-centric reporter')
+    skip.add_argument('--skip-sample-centric', action='store_true',
+                      help='Skip sample-centric reporter')
 
     args = parser.parse_args()
 
-    if args.update_amr_db or args.force_update_amr_db:
-        orchestrator = KleboscopeOrchestrator()
-        orchestrator.run_complete_analysis("", "", update_amr_db_only=True, force_update_amr=args.force_update_amr_db)
-        sys.exit(0)
+    if args.abricate_min_id < 0 or args.abricate_min_id > 100:
+        parser.error("--abricate-min-id must be between 0 and 100")
+    if args.abricate_min_cov < 0 or args.abricate_min_cov > 100:
+        parser.error("--abricate-min-cov must be between 0 and 100")
 
-    if not args.input or not args.output:
-        parser.error("When not using --update-amr-db or --force-update-amr-db, both -i/--input and -o/--output are required.")
-
-    skip_modules = {
-        'qc': args.skip_qc,
-        'mlst': args.skip_mlst,
-        'kaptive': args.skip_kaptive,
-        'abricate': args.skip_abricate,
-        'amr': args.skip_amr,
-    }
-
-    orchestrator = KleboscopeOrchestrator()
-    orchestrator.keep_temp = args.keep_temp
-    orchestrator.run_complete_analysis(
-        input_path=args.input,
-        output_dir=args.output,
-        threads=args.threads,
-        skip_modules=skip_modules,
-        skip_summary=args.skip_summary,
-        skip_sample_centric=args.skip_sample_centric,
-        amr_min_identity=args.amr_min_identity,
-        amr_min_coverage=args.amr_min_coverage,
-        amr_skip_mutations=args.skip_amr_mutations,
-        abricate_min_id=args.abricate_min_id,
-        abricate_min_cov=args.abricate_min_cov
+    orch = KleboscopeOrchestrator(
+        quiet=args.quiet,
+        keep_temp=args.keep_temp,
+        tmpdir=args.tmpdir,
     )
+
+    if args.report_level == 'final' and args.skip_gene_centric and args.skip_sample_centric:
+        parser.error(
+            "--report-level final requires at least one reporter to run "
+            "(--skip-gene-centric and --skip-sample-centric both set would "
+            "produce an empty final report)."
+        )
+
+    try:
+        ok = orch.run_complete_analysis(
+            input_path=args.input,
+            output_dir=args.output,
+            threads=args.threads,
+            skip_modules={
+                'qc':       args.skip_qc,
+                'mlst':     args.skip_mlst,
+                'kaptive':  args.skip_kaptive,
+                'abricate': args.skip_abricate,
+                'amr':      args.skip_amr,
+                'mge':      args.skip_mge,
+            },
+            skip_gene_centric=args.skip_gene_centric,
+            skip_sample_centric=args.skip_sample_centric,
+            update_amr_only=args.update_amr_db,
+            force_update_amr_only=args.force_update_amr_db,
+            pull_mlst_only=args.pull_mlst_db,
+            update_mlst_only=args.update_mlst_db,
+            pull_mge_only=args.pull_mge_db,
+            amr_min_identity=args.amr_min_identity,
+            amr_min_coverage=args.amr_min_coverage,
+            amr_skip_mutations=args.skip_amr_mutations,
+            amr_force_update=args.amr_force_update,
+            abricate_min_id=args.abricate_min_id,
+            abricate_min_cov=args.abricate_min_cov,
+            clean_output=args.clean_output,
+            report_level=args.report_level,
+        )
+        sys.exit(0 if ok else 1)
+    except KeyboardInterrupt:
+        orch.print_error("Analysis interrupted by user")
+        sys.exit(1)
+    except Exception as e:
+        orch.print_error(f"Critical error: {e}")
+        if not args.quiet:
+            traceback.print_exc()
+        sys.exit(1)
 
 
 if __name__ == "__main__":

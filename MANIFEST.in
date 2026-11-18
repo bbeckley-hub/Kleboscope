@@ -1,4 +1,4 @@
-linclude README.md
+include README.md
 include LICENSE
 include requirements.txt
 include CITATION.cff
@@ -6,8 +6,8 @@ include environment.yml
 include setup.py
 include meta.yaml
 
-# Include EVERYTHING in acinetoscope directory
-recursive-include kleboscope *
+# Include all Kleboscope package files
+recursive-include kleboscope **
 # Standard exclusions
 global-exclude __pycache__
 global-exclude *.pyc

@@ -22,6 +22,11 @@ Kp_fasta/
 results/
 # Ignore bin folder in MLST module
 
-kleboscope/modules/kleb_mlst_module/kleb_mlst_data/
-kleboscope/modules/kleb_mlst_module/kleb_mlst_data-v1.0.0.tar.gz
 kleboscope/modules/kleb_amr_module/data/
+kleboscope/modules/amr_module/data
+kleboscope/modules/mlst_module/perl5
+kleboscope/modules/mlst_module/scripts
+kleboscope/modules/mlst_module/db
+kleboscope/modules/mlst_module/bin
+kleboscope/modules/mge_module/mobileOG-db
+
