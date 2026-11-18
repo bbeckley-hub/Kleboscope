@@ -6,7 +6,7 @@ Parses MLST / Kaptive / FASTA QC from TSV files.
 
 Author: Brown Beckley <brownbeckley94@gmail.com>
 Affiliation: University of Ghana Medical School
-Version: 2.3.0
+Version: 3.0.0
 """
 
 import os

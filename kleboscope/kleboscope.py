@@ -1121,6 +1121,72 @@ Affiliation: {AUTHOR_AFFILIATION}
             "amr_module", fasta_files, cmd, result_subdir=DIR_AMR,
         )
 
+    # ------------------------------------------------------------------
+    # MGE summary collection
+    # ------------------------------------------------------------------
+    def _collect_mge_summaries(self, temp_dir: Path, dst: Path) -> List[str]:
+        """Locate the MGEFinder batch summaries and stage them for reporters.
+
+        MGEFinder.py may write the summary files at the top level of the
+        run directory, inside the -d mge_results/ directory, or inside the
+        per-sample annotations subtree (which the result copy deliberately
+        skips). This searches the entire temporary run directory, copies
+        every summary it finds into dst under its canonical name, and
+        returns the canonical names that are still missing.
+        """
+        expected = [
+            "kleboscope_mge_summary.tsv",
+            "kleboscope_mge_all_hits.tsv",
+            "kleboscope_mge_summary.json",
+            "kleboscope_mge_summary.html",
+        ]
+        variants = {
+            "kleboscope_mge_summary.tsv": "mge_summary.tsv",
+            "kleboscope_mge_all_hits.tsv": "mge_all_hits.tsv",
+            "kleboscope_mge_summary.json": "mge_summary.json",
+            "kleboscope_mge_summary.html": "mge_summary.html",
+        }
+        excluded = {"mobileOG-db", "__pycache__"}
+
+        def _search(name: str) -> List[Path]:
+            hits = [
+                p for p in temp_dir.rglob(name)
+                if p.is_file() and not (excluded & set(p.parts))
+            ]
+            hits.sort(key=lambda p: len(p.parts))
+            return hits
+
+        missing = []
+        for canonical in expected:
+            hits = _search(canonical)
+            if hits:
+                if hits[0] != dst / canonical:
+                    shutil.copy2(hits[0], dst / canonical)
+                    self.logger.info(
+                        f"Collected {canonical} from {hits[0]}"
+                    )
+                continue
+
+            hits = _search(variants[canonical])
+            if hits:
+                shutil.copy2(hits[0], dst / canonical)
+                self.print_warning(
+                    f"MGE summary written as '{variants[canonical]}'; "
+                    f"staged as '{canonical}' in {dst}"
+                )
+            else:
+                missing.append(canonical)
+
+        if "kleboscope_mge_summary.html" in missing:
+            mge_src = temp_dir / "mge_results"
+            if mge_src.exists():
+                for html in sorted(mge_src.rglob("*.html")):
+                    if html.is_file():
+                        self.logger.info(
+                            f"MGE html present under unexpected name: {html}"
+                        )
+        return missing
+
     def run_mge_analysis(self, fasta_files: List[Path], output_dir: Path,
                          threads: int) -> Tuple[bool, str]:
         """Run MGE profiling with mobileOG-db.
@@ -1128,7 +1194,9 @@ Affiliation: {AUTHOR_AFFILIATION}
         The resolved mobileOG-db payload is copied into the temp working
         directory (no symlinks) so the pipeline works on filesystems that
         do not support symlinks. Actual filenames are passed to
-        MGEFinder.py — it does not expand glob patterns.
+        MGEFinder.py — it does not expand glob patterns. Batch summaries
+        are collected from wherever MGEFinder writes them and staged in
+        the consolidated mge_results/ directory for the reporters.
         """
         module_orig = self.get_module_path("mge_module")
         if not module_orig.exists():
@@ -1198,16 +1266,10 @@ Affiliation: {AUTHOR_AFFILIATION}
             dst = self.user_output_dir / DIR_MGE
             self._copy_module_results(src, dst, skip_dirs={"annotations"})
 
-            expected = [
-                "kleboscope_mge_summary.tsv",
-                "kleboscope_mge_all_hits.tsv",
-                "kleboscope_mge_summary.json",
-                "kleboscope_mge_summary.html",
-            ]
-            missing = [f for f in expected if not (dst / f).exists()]
+            missing = self._collect_mge_summaries(temp_dir, dst)
             if missing:
                 self.print_warning(
-                    f"MGE ran but these summary files are missing: "
+                    "MGE ran but these summary files are missing: "
                     f"{', '.join(missing)}. Reporters may not include MGE data."
                 )
 
