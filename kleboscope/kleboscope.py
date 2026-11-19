@@ -1816,7 +1816,7 @@ def main():
   4. abricate --setupdb               (ABRicate databases)
 
 {Color.BRIGHT_YELLOW}MLST DATABASE MANAGEMENT:{Color.RESET}
-  --pull-mlst-db     : Download pre-built P. aeruginosa MLST scheme from the
+  --pull-mlst-db     : Download pre-built K. pneumoniae MLST scheme from the
                        GitHub repo. No API key required.
   --update-mlst-db   : Refresh the MLST scheme directly from PubMLST using
                        mlstdb. Requires a one-time PubMLST API key setup:
